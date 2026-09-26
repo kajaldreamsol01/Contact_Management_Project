@@ -14,10 +14,9 @@ import type { MRT_ColumnDef } from "material-react-table";
 import ReactTable from "../ReactTable";
 import {
   getContactHistory,
-  getContactHistoryTableConfig,
   type ContactHistoryItem,
-  type ContactTableColumnConfig,
 } from "./apis";
+import { getReactTableConfig, type ReactTableColumnConfig } from "./tableConfig";
 
 type Props = {
   open: boolean;
@@ -58,22 +57,6 @@ const actionColor = (action: string) =>
       ? "error"
       : "info";
 
-const historyValue = (row: ContactHistoryItem, key: string) => {
-  if (key === "action") return row.action;
-  if (key === "actionBy") return row.actionBy;
-  if (key === "changedAt") return row.changedAt;
-  if (key === "source") return row.source;
-  if (key === "fieldName") return row.fieldName;
-  if (key === "contactCode") return row.data?.contactCode ?? row.contactCode;
-  return row.data?.[key];
-};
-
-const displayHistoryValue = (data: unknown) => {
-  if (Array.isArray(data))
-    return data.length ? data.map((item) => value(item)).join(", ") : "N/A";
-  return value(data);
-};
-
 export default function ContactHistoryDialog({
   open,
   contactId,
@@ -81,7 +64,7 @@ export default function ContactHistoryDialog({
   onClose,
 }: Props) {
   const [items, setItems] = useState<ContactHistoryItem[]>([]);
-  const [config, setConfig] = useState<ContactTableColumnConfig[]>([]);
+  const [config, setConfig] = useState<ReactTableColumnConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -94,7 +77,7 @@ export default function ContactHistoryDialog({
 
     Promise.all([
       getContactHistory(contactId),
-      getContactHistoryTableConfig(),
+      getReactTableConfig("CONTACT_HISTORY"),
     ])
       .then(([history, columns]) => {
         if (!active) return;
@@ -122,7 +105,7 @@ export default function ContactHistoryDialog({
           header: item.header,
           size: item.size,
           enableSorting: item.sortable ?? false,
-          accessorFn: (row) => historyValue(row, item.key),
+          accessorFn: (row) => row[item.key as keyof ContactHistoryItem],
         };
 
         if (item.key === "action") {
@@ -138,7 +121,7 @@ export default function ContactHistoryDialog({
         } else {
           column.Cell = ({ row }) => (
             <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25 }}>
-              {displayHistoryValue(historyValue(row.original, item.key))}
+              {value(row.original[item.key as keyof ContactHistoryItem])}
             </Box>
           );
         }

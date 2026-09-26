@@ -5,8 +5,12 @@ import com.contactmanagement.auth.security.AuthUserPrincipal;
 import com.contactmanagement.common.dto.UserAuthResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
-import org.springframework.security.core.userdetails.*;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -16,14 +20,15 @@ public class RemoteUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) {
         try {
-            var r = userClient.byEmail(email.trim().toLowerCase());
-            UserAuthResponseDto u = r == null ? null : r.getData();
-            if (u == null || u.isStatus()) throw new UsernameNotFoundException("Invalid email or password");
-            return new AuthUserPrincipal(u.getId(), u.getEmail(), u.getPassword(), u.getRole());
-        } catch (UsernameNotFoundException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InternalAuthenticationServiceException("User service is unavailable", e);
+            var userResponse = userClient.byEmail(email.trim().toLowerCase());
+            UserAuthResponseDto user = Objects.isNull(userResponse) ? null : userResponse.getData();
+            if (Objects.isNull(user) || user.isStatus())
+                throw new UsernameNotFoundException("Invalid email or password");
+            return new AuthUserPrincipal(user.getId(), user.getEmail(), user.getPassword(), user.getRole());
+        } catch (UsernameNotFoundException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new InternalAuthenticationServiceException("User service is unavailable", exception);
         }
     }
 }

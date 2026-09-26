@@ -34,130 +34,138 @@ public class ContactFileProcessor {
         if (CollectionUtils.isEmpty(types) || files.size() != types.size())
             return ApiResponse.response("FAILED", "File type mapping is invalid");
         try {
-            List<ContactFileResponseDto> data = IntStream.range(0, files.size()).mapToObj(i -> store(files.get(i), types.get(i))).toList();
-            return ApiResponse.response("SUCCESS", data.size() + " file(s) uploaded successfully", data);
-        } catch (Exception e) {
-            Throwable cause = e instanceof IllegalArgumentException ? e : e.getCause();
+            List<ContactFileResponseDto> uploadedFiles = IntStream.range(0, files.size()).mapToObj(index -> store(files.get(index), types.get(index))).toList();
+            return ApiResponse.response("SUCCESS", uploadedFiles.size() + " file(s) uploaded successfully", uploadedFiles);
+        } catch (Exception exception) {
+            Throwable cause = exception instanceof IllegalArgumentException ? exception : exception.getCause();
             return ApiResponse.response("FAILED", cause instanceof IllegalArgumentException ? cause.getMessage() : "Unable to upload files");
         }
     }
 
     public ResponseEntity<Resource> download(String uuid) {
         if (!valid(uuid)) return ResponseEntity.badRequest().build();
-        FileMapping mapping = repository.findById(uuid).orElse(null);
-        if (mapping == null) return ResponseEntity.notFound().build();
+        FileMapping fileMapping = repository.findById(uuid).orElse(null);
+        if (Objects.isNull(fileMapping)) return ResponseEntity.notFound().build();
         try {
-            FilePaths paths = paths(mapping);
-            Path file = paths.candidates().stream().filter(p -> Files.isRegularFile(p) && Files.isReadable(p)).findFirst().orElse(null);
-            if (file == null) return ResponseEntity.notFound().build();
-            if (!file.equals(paths.stable())) try {
-                Files.createDirectories(paths.stable().getParent());
-                Files.copy(file, paths.stable(), StandardCopyOption.REPLACE_EXISTING);
-                file = paths.stable();
+            FilePaths filePaths = paths(fileMapping);
+            Path filePath = filePaths.candidates().stream().filter(candidatePath -> Files.isRegularFile(candidatePath) && Files.isReadable(candidatePath)).findFirst().orElse(null);
+            if (Objects.isNull(filePath)) return ResponseEntity.notFound().build();
+            if (!filePath.equals(filePaths.stable())) try {
+                Files.createDirectories(filePaths.stable().getParent());
+                Files.copy(filePath, filePaths.stable(), StandardCopyOption.REPLACE_EXISTING);
+                filePath = filePaths.stable();
             } catch (Exception ignored) {
             }
-            String resolved = file.toAbsolutePath().normalize().toString();
-            if (!resolved.equals(mapping.getFilePath())) {
-                mapping.setFilePath(resolved);
-                repository.save(mapping);
+            String resolvedPath = filePath.toAbsolutePath().normalize().toString();
+            if (!resolvedPath.equals(fileMapping.getFilePath())) {
+                fileMapping.setFilePath(resolvedPath);
+                repository.save(fileMapping);
             }
-            String ext = extension(mapping.getFileName());
-            return ResponseEntity.ok().contentType(mediaType(ext)).header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(mapping.getFileName(), StandardCharsets.UTF_8).build().toString()).contentLength(Files.size(file)).body(new UrlResource(file.toUri()));
-        } catch (Exception e) {
+            String fileExtension = extension(fileMapping.getFileName());
+            return ResponseEntity.ok().contentType(mediaType(fileExtension)).header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileMapping.getFileName(), StandardCharsets.UTF_8).build().toString()).contentLength(Files.size(filePath)).body(new UrlResource(filePath.toUri()));
+        } catch (Exception exception) {
             return ResponseEntity.notFound().build();
         }
     }
 
     public ApiResponse<Void> delete(String uuid) {
         if (!valid(uuid)) return ApiResponse.response("FAILED", "Invalid file UUID");
-        FileMapping mapping = repository.findById(uuid).orElse(null);
-        if (mapping == null) return ApiResponse.response("SUCCESS", "File already removed");
+        FileMapping fileMapping = repository.findById(uuid).orElse(null);
+        if (Objects.isNull(fileMapping)) return ApiResponse.response("SUCCESS", "File already removed");
         try {
-            for (Path path : paths(mapping).candidates()) Files.deleteIfExists(path);
-            repository.delete(mapping);
+            for (Path filePath : paths(fileMapping).candidates()) Files.deleteIfExists(filePath);
+            repository.delete(fileMapping);
             repository.flush();
             return ApiResponse.response("SUCCESS", "File removed successfully");
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return ApiResponse.response("FAILED", "Unable to remove file");
         }
     }
 
     public Map<String, ContactFileResponseDto> metadata(Collection<Contact> contacts) {
         if (CollectionUtils.isEmpty(contacts)) return Map.of();
-        Set<String> ids = new LinkedHashSet<>();
-        contacts.forEach(c -> {
-            if (StringUtils.hasText(c.getPhotoUuid())) ids.add(c.getPhotoUuid());
-            if (!CollectionUtils.isEmpty(c.getDocumentUuids()))
-                c.getDocumentUuids().stream().filter(StringUtils::hasText).forEach(ids::add);
+        Set<String> fileUuids = new LinkedHashSet<>();
+        contacts.forEach(contact -> {
+            if (StringUtils.hasText(contact.getPhotoUuid())) fileUuids.add(contact.getPhotoUuid());
+            if (!CollectionUtils.isEmpty(contact.getDocumentUuids()))
+                contact.getDocumentUuids().stream().filter(StringUtils::hasText).forEach(fileUuids::add);
         });
-        return metadataByUuids(ids);
+        return metadataByUuids(fileUuids);
     }
 
     public Map<String, ContactFileResponseDto> metadataByUuids(Collection<String> uuids) {
         if (CollectionUtils.isEmpty(uuids)) return Map.of();
-        Set<String> ids = new LinkedHashSet<>();
-        uuids.stream().filter(StringUtils::hasText).forEach(ids::add);
-        if (ids.isEmpty()) return Map.of();
-        Map<String, ContactFileResponseDto> data = new HashMap<>();
-        repository.findAllById(ids).forEach(f -> data.put(f.getUuid(), new ContactFileResponseDto(f.getUuid(), f.getFileName(), f.getFileType())));
-        return data;
+        Set<String> fileUuids = new LinkedHashSet<>();
+        uuids.stream().filter(StringUtils::hasText).forEach(fileUuids::add);
+        if (fileUuids.isEmpty()) return Map.of();
+        Map<String, ContactFileResponseDto> metadata = new HashMap<>();
+        repository.findAllById(fileUuids).forEach(fileMapping -> metadata.put(fileMapping.getUuid(), new ContactFileResponseDto(fileMapping.getUuid(), fileMapping.getFileName(), fileMapping.getFileType())));
+        return metadata;
     }
 
     private ContactFileResponseDto store(MultipartFile file, String typeValue) {
-        String type = Objects.toString(typeValue, "").trim().toUpperCase();
-        String name = StringUtils.cleanPath(Objects.toString(file.getOriginalFilename(), "file"));
-        if (!List.of("PHOTO", "DOCUMENT").contains(type)) throw new IllegalArgumentException("Invalid attachment type");
-        if (!StringUtils.hasText(name) || name.contains("..")) throw new IllegalArgumentException("Invalid file name");
-        AttachmentValidation.validate(file, "PHOTO".equals(type) ? List.of("jpg", "jpeg", "png") : List.of("pdf", "doc", "docx", "xls", "xlsx"), MAX_FILE_SIZE, name + " exceeds the 10 MB file limit", "PHOTO".equals(type) ? "Photo must be JPG, JPEG or PNG" : "Document must be PDF, DOC, DOCX, XLS or XLSX");
-        String ext = extension(name), uuid = UUID.randomUUID().toString().replace("-", "");
-        Path dir = Paths.get(storageDirectory).toAbsolutePath().normalize().resolve(type.toLowerCase()), path = dir.resolve(uuid + "." + ext);
+        String fileType = Objects.toString(typeValue, "").trim().toUpperCase();
+        String fileName = StringUtils.cleanPath(Objects.toString(file.getOriginalFilename(), "file"));
+        if (!List.of("PHOTO", "DOCUMENT").contains(fileType))
+            throw new IllegalArgumentException("Invalid attachment type");
+        if (!StringUtils.hasText(fileName) || fileName.contains(".."))
+            throw new IllegalArgumentException("Invalid file name");
+        AttachmentValidation.validate(file, "PHOTO".equals(fileType) ? List.of("jpg", "jpeg", "png") : List.of("pdf", "doc", "docx", "xls", "xlsx"), MAX_FILE_SIZE, fileName + " exceeds the 10 MB file limit", "PHOTO".equals(fileType) ? "Photo must be JPG, JPEG or PNG" : "Document must be PDF, DOC, DOCX, XLS or XLSX");
+        String fileExtension = extension(fileName);
+        String uuid = UUID.randomUUID().toString().replace("-", "");
+        Path directory = Paths.get(storageDirectory).toAbsolutePath().normalize().resolve(fileType.toLowerCase());
+        Path filePath = directory.resolve(uuid + "." + fileExtension);
         try {
-            Files.createDirectories(dir);
-            try (var input = file.getInputStream()) {
-                Files.copy(input, path, StandardCopyOption.REPLACE_EXISTING);
+            Files.createDirectories(directory);
+            try (var inputStream = file.getInputStream()) {
+                Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
             }
-            FileMapping mapping = new FileMapping();
-            mapping.setUuid(uuid);
-            mapping.setFileName(name);
-            mapping.setFilePath(path.toAbsolutePath().toString());
-            mapping.setFileType(type);
-            repository.saveAndFlush(mapping);
-            return new ContactFileResponseDto(uuid, name, type);
-        } catch (Exception e) {
+            FileMapping fileMapping = new FileMapping();
+            fileMapping.setUuid(uuid);
+            fileMapping.setFileName(fileName);
+            fileMapping.setFilePath(filePath.toAbsolutePath().toString());
+            fileMapping.setFileType(fileType);
+            repository.saveAndFlush(fileMapping);
+            return new ContactFileResponseDto(uuid, fileName, fileType);
+        } catch (Exception exception) {
             try {
-                Files.deleteIfExists(path);
+                Files.deleteIfExists(filePath);
             } catch (Exception ignored) {
             }
-            throw new IllegalStateException("Unable to store file", e);
+            throw new IllegalStateException("Unable to store file", exception);
         }
     }
 
-    private FilePaths paths(FileMapping mapping) {
-        String ext = extension(mapping.getFileName()), folder = Objects.toString(mapping.getFileType(), "file").toLowerCase(), saved = mapping.getUuid() + (StringUtils.hasText(ext) ? "." + ext : "");
-        Path root = Paths.get(storageDirectory).toAbsolutePath().normalize(), cwd = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize(), stable = root.resolve(folder).resolve(saved);
-        Set<Path> paths = new LinkedHashSet<>(List.of(stable, cwd.resolve("uploads").resolve(folder).resolve(saved)));
-        if (StringUtils.hasText(mapping.getFilePath())) try {
-            paths.add(Paths.get(mapping.getFilePath()).toAbsolutePath().normalize());
+    private FilePaths paths(FileMapping fileMapping) {
+        String fileExtension = extension(fileMapping.getFileName());
+        String folderName = Objects.toString(fileMapping.getFileType(), "file").toLowerCase();
+        String storedFileName = fileMapping.getUuid() + (StringUtils.hasText(fileExtension) ? "." + fileExtension : "");
+        Path storageRoot = Paths.get(storageDirectory).toAbsolutePath().normalize();
+        Path workingDirectory = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        Path stablePath = storageRoot.resolve(folderName).resolve(storedFileName);
+        Set<Path> candidatePaths = new LinkedHashSet<>(List.of(stablePath, workingDirectory.resolve("uploads").resolve(folderName).resolve(storedFileName)));
+        if (StringUtils.hasText(fileMapping.getFilePath())) try {
+            candidatePaths.add(Paths.get(fileMapping.getFilePath()).toAbsolutePath().normalize());
         } catch (Exception ignored) {
         }
-        Path parent = cwd.getParent();
-        if (parent != null) {
-            paths.add(parent.resolve("uploads").resolve(folder).resolve(saved));
-            paths.add(parent.resolve("contact-management").resolve("uploads").resolve(folder).resolve(saved));
+        Path parentDirectory = workingDirectory.getParent();
+        if (Objects.nonNull(parentDirectory)) {
+            candidatePaths.add(parentDirectory.resolve("uploads").resolve(folderName).resolve(storedFileName));
+            candidatePaths.add(parentDirectory.resolve("contact-management").resolve("uploads").resolve(folderName).resolve(storedFileName));
         }
-        return new FilePaths(stable, paths);
+        return new FilePaths(stablePath, candidatePaths);
     }
 
     private boolean valid(String uuid) {
         return StringUtils.hasText(uuid) && uuid.matches("^[a-fA-F0-9]{32}$");
     }
 
-    private String extension(String name) {
-        return Objects.toString(StringUtils.getFilenameExtension(name), "").toLowerCase();
+    private String extension(String fileName) {
+        return Objects.toString(StringUtils.getFilenameExtension(fileName), "").toLowerCase();
     }
 
-    private MediaType mediaType(String ext) {
-        return switch (ext) {
+    private MediaType mediaType(String fileExtension) {
+        return switch (fileExtension) {
             case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
             case "png" -> MediaType.IMAGE_PNG;
             case "pdf" -> MediaType.APPLICATION_PDF;

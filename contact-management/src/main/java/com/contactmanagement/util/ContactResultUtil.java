@@ -12,12 +12,7 @@ public final class ContactResultUtil {
     private ContactResultUtil() {
     }
 
-    public static Map<String, Object> item(
-            int index,
-            ContactRequestDto request,
-            String contactCode,
-            boolean created
-    ) {
+    public static Map<String, Object> item(int index, ContactRequestDto request, String contactCode, boolean created) {
         ContactRequestDto dataRequest = Objects.requireNonNullElseGet(request, ContactRequestDto::new);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("index", index);

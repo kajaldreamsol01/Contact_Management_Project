@@ -29,39 +29,75 @@ public class ContactController {
     private final ContactFileProcessor fileProcessor;
     private final ReactTableHeaderComponent tableHeaderComponent;
 
-    @PreAuthorize(WRITE) @PostMapping("save")
-    public ApiResponse<Map<String,Object>> save(@RequestBody List<ContactRequestDto> requests) { return service.save(requests, "FORM"); }
+    @PreAuthorize(WRITE)
+    @PostMapping("save")
+    public ApiResponse<Map<String, Object>> save(@RequestBody List<ContactRequestDto> requests) {
+        return service.save(requests, "FORM");
+    }
 
-    @PreAuthorize(READ) @GetMapping({"fetch","filter"})
-    public ApiResponse<Page<ContactListResponseDto>> fetch(@ModelAttribute ContactSearchRequestDto request) { return service.fetch(request); }
+    @PreAuthorize(READ)
+    @GetMapping({"fetch", "filter"})
+    public ApiResponse<Page<ContactListResponseDto>> fetch(@ModelAttribute ContactSearchRequestDto request) {
+        return service.fetch(request);
+    }
 
-    @PreAuthorize(READ) @GetMapping("{id}")
-    public ApiResponse<ContactResponseDto> get(@PathVariable Long id) { return service.get(id); }
+    @PreAuthorize(READ)
+    @GetMapping("{id}")
+    public ApiResponse<ContactResponseDto> get(@PathVariable Long id) {
+        return service.get(id);
+    }
 
-    @PreAuthorize("@securityUtil.hasAuthority('admin')") @DeleteMapping("{id}")
-    public ApiResponse<Void> delete(@PathVariable Long id) { return service.deactivate(id); }
+    @PreAuthorize("@securityUtil.hasAuthority('admin')")
+    @DeleteMapping("{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        return service.deactivate(id);
+    }
 
-    @PreAuthorize(READ) @GetMapping("history/{contactId}")
-    public ApiResponse<List<ContactHistoryResponseDto>> history(@PathVariable Long contactId) { return service.history(contactId); }
+    @PreAuthorize(READ)
+    @GetMapping("history/{contactId}")
+    public ApiResponse<List<ContactHistoryResponseDto>> history(@PathVariable Long contactId) {
+        return service.history(contactId);
+    }
 
-    @PreAuthorize(READ) @GetMapping("history-config")
-    public ApiResponse<List<TableColumnConfig>> historyConfig() { return ApiResponse.response("SUCCESS", "Contact history table config fetched successfully", tableHeaderComponent.get("CONTACT_HISTORY")); }
+    @PreAuthorize(READ)
+    @GetMapping("history-config")
+    public ApiResponse<List<TableColumnConfig>> historyConfig() {
+        return ApiResponse.response("SUCCESS", "Contact history table config fetched successfully", tableHeaderComponent.get("CONTACT_HISTORY"));
+    }
 
-    @PreAuthorize(READ) @GetMapping("status-count")
-    public ApiResponse<CommonStatusCountDto> statusCount(@ModelAttribute ContactSearchRequestDto request) { return service.statusCount(request); }
+    @PreAuthorize(READ)
+    @GetMapping("status-count")
+    public ApiResponse<CommonStatusCountDto> statusCount(@ModelAttribute ContactSearchRequestDto request) {
+        return service.statusCount(request);
+    }
 
-    @PreAuthorize(READ) @GetMapping("analytics")
-    public ApiResponse<ContactAnalyticsResponseDto> analytics(@ModelAttribute ContactSearchRequestDto request) { return service.analytics(request); }
+    @PreAuthorize(READ)
+    @GetMapping("analytics")
+    public ApiResponse<ContactAnalyticsResponseDto> analytics(@ModelAttribute ContactSearchRequestDto request) {
+        return service.analytics(request);
+    }
 
-    @PreAuthorize(READ) @GetMapping("name-suggestions")
-    public ApiResponse<List<String>> suggestions(@RequestParam String query) { return service.nameSuggestions(query); }
+    @PreAuthorize(READ)
+    @GetMapping("name-suggestions")
+    public ApiResponse<List<String>> suggestions(@RequestParam String query) {
+        return service.nameSuggestions(query);
+    }
 
-    @PreAuthorize(WRITE) @PostMapping(value="file/upload", consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<List<ContactFileResponseDto>> upload(@RequestParam List<MultipartFile> files, @RequestParam List<String> types) { return fileProcessor.upload(files, types); }
+    @PreAuthorize(WRITE)
+    @PostMapping(value = "file/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<List<ContactFileResponseDto>> upload(@RequestParam List<MultipartFile> files, @RequestParam List<String> types) {
+        return fileProcessor.upload(files, types);
+    }
 
-    @PreAuthorize(READ) @GetMapping("file/{uuid}")
-    public ResponseEntity<Resource> file(@PathVariable String uuid) { return fileProcessor.download(uuid); }
+    @PreAuthorize(READ)
+    @GetMapping("file/{uuid}")
+    public ResponseEntity<Resource> file(@PathVariable String uuid) {
+        return fileProcessor.download(uuid);
+    }
 
-    @PreAuthorize(WRITE) @DeleteMapping("file/{uuid}")
-    public ApiResponse<Void> deleteFile(@PathVariable String uuid) { return fileProcessor.delete(uuid); }
+    @PreAuthorize(WRITE)
+    @DeleteMapping("file/{uuid}")
+    public ApiResponse<Void> deleteFile(@PathVariable String uuid) {
+        return fileProcessor.delete(uuid);
+    }
 }

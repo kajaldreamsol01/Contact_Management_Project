@@ -15,7 +15,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,40 +33,40 @@ public class MasterService {
 
     @Cacheable(cacheNames = CacheConstants.MASTER_DROPDOWNS, key = "'all'")
     public ApiResponse<Map<String, List<MasterResponseDto>>> dropdown() {
-        Map<String, List<MasterResponseDto>> data = Arrays.stream(MasterType.values()).collect(Collectors.toMap(MasterType::dropdownKey, type -> repository.findAllByTypeAndStatusFalseOrderByNameAsc(type).stream().map(this::map).toList(), (a, b) -> a, LinkedHashMap::new));
-        return ApiResponse.response("SUCCESS", "Master dropdown fetched successfully", data);
+        Map<String, List<MasterResponseDto>> dropdownData = Arrays.stream(MasterType.values()).collect(Collectors.toMap(MasterType::dropdownKey, masterType -> repository.findAllByTypeAndStatusFalseOrderByNameAsc(masterType).stream().map(this::map).toList(), (existingValue, newValue) -> existingValue, LinkedHashMap::new));
+        return ApiResponse.response("SUCCESS", "Master dropdown fetched successfully", dropdownData);
     }
 
     @CacheEvict(cacheNames = CacheConstants.MASTER_DROPDOWNS, allEntries = true)
     public ApiResponse<MasterResponseDto> save(MasterType type, MasterRequestDto request) {
-        String name = Objects.toString(request.getName(), "").trim();
-        if (name.isBlank()) return ApiResponse.response("FAILED", "Master name is required", null);
-        MasterEntity entity;
-        if (request.getId() == null) {
-            entity = repository.findByTypeAndNameIgnoreCase(type, name).orElseGet(MasterEntity::new);
-            entity.setType(type);
+        String masterName = Objects.toString(request.getName(), "").trim();
+        if (masterName.isBlank()) return ApiResponse.response("FAILED", "Master name is required", null);
+        MasterEntity masterEntity;
+        if (Objects.isNull(request.getId())) {
+            masterEntity = repository.findByTypeAndNameIgnoreCase(type, masterName).orElseGet(MasterEntity::new);
+            masterEntity.setType(type);
         } else {
-            entity = repository.findByIdAndType(request.getId(), type).orElse(null);
-            if (entity == null) return ApiResponse.response("FAILED", "Master not found", null);
-            if (repository.existsByTypeAndNameIgnoreCaseAndIdNot(type, name, entity.getId()))
+            masterEntity = repository.findByIdAndType(request.getId(), type).orElse(null);
+            if (Objects.isNull(masterEntity)) return ApiResponse.response("FAILED", "Master not found", null);
+            if (repository.existsByTypeAndNameIgnoreCaseAndIdNot(type, masterName, masterEntity.getId()))
                 return ApiResponse.response("FAILED", "Master already exists", null);
         }
-        entity.setName(name);
-        if (request.getStatus() != null) entity.setStatus(request.getStatus());
-        else if (entity.getId() == null) entity.setStatus(false);
-        return ApiResponse.response("SUCCESS", "Master saved successfully", map(repository.save(entity)));
+        masterEntity.setName(masterName);
+        if (Objects.nonNull(request.getStatus())) masterEntity.setStatus(request.getStatus());
+        else if (Objects.isNull(masterEntity.getId())) masterEntity.setStatus(false);
+        return ApiResponse.response("SUCCESS", "Master saved successfully", map(repository.save(masterEntity)));
     }
 
     @CacheEvict(cacheNames = CacheConstants.MASTER_DROPDOWNS, allEntries = true)
     public ApiResponse<Void> delete(MasterType type, Long id) {
-        MasterEntity entity = repository.findByIdAndType(id, type).orElse(null);
-        if (entity == null) return ApiResponse.response("FAILED", "Master not found", null);
-        entity.setStatus(true);
-        repository.save(entity);
+        MasterEntity masterEntity = repository.findByIdAndType(id, type).orElse(null);
+        if (Objects.isNull(masterEntity)) return ApiResponse.response("FAILED", "Master not found", null);
+        masterEntity.setStatus(true);
+        repository.save(masterEntity);
         return ApiResponse.response("SUCCESS", "Master marked inactive successfully", null);
     }
 
-    private MasterResponseDto map(MasterEntity entity) {
-        return new MasterResponseDto(entity.getId(), entity.getName(), entity.isStatus());
+    private MasterResponseDto map(MasterEntity masterEntity) {
+        return new MasterResponseDto(masterEntity.getId(), masterEntity.getName(), masterEntity.isStatus());
     }
 }

@@ -13,8 +13,9 @@ import ContactActivityFilter, { getAppliedFilterLabels, getDefaultContactFilters
 import AddContactForm from "./AddContactForm";
 import UpdateContactForm from "./UpdateContactForm";
 import ContactHistoryDialog from "./ContactHistoryDialog";
-import { deactivateContact, deleteContactFile, downloadContactFile, downloadContactFormat, downloadContactsExcel, requestContactsExcelDownload, getContactTableConfig, getDropdowns, getStatusCount, getUserNames, importContactsExcel, validateContactsExcel, saveContact, filterContacts, setDraftFilters as setDraftFiltersAction, setAppliedFilters as setAppliedFiltersAction, setDropdownCache, type ContactDetail, type ContactDropdownData, type ContactFilters, type ContactListItem, type ContactTableColumnConfig, type ContactRequestDto, type ExcelPreviewRow, } from "./apis";
+import { deactivateContact, deleteContactFile, downloadContactFile, downloadContactFormat, downloadContactsExcel, requestContactsExcelDownload, getDropdowns, getStatusCount, getUserNames, importContactsExcel, validateContactsExcel, saveContact, filterContacts, setDraftFilters as setDraftFiltersAction, setAppliedFilters as setAppliedFiltersAction, setDropdownCache, type ContactDetail, type ContactDropdownData, type ContactFilters, type ContactListItem, type ContactRequestDto, type ExcelPreviewRow, } from "./apis";
 import { useAppDispatch, useAppSelector } from "../../../../store/hooks";
+import { getReactTableConfig, type ReactTableColumnConfig } from "./tableConfig";
 const EMPTY_DROPDOWNS: ContactDropdownData = {
     names: [],
     contactTypes: [],
@@ -159,7 +160,8 @@ function ContactActivityBoard() {
         inactive: 0,
     });
     const [auditNames, setAuditNames] = useState<Record<number, string>>({});
-    const [tableConfig, setTableConfig] = useState<ContactTableColumnConfig[]>([]);
+    const [tableConfig, setTableConfig] = useState<ReactTableColumnConfig[]>([]);
+    const [previewTableConfig, setPreviewTableConfig] = useState<ReactTableColumnConfig[]>([]);
     const [formOpen, setFormOpen] = useState(false);
     const [editingContact, setEditingContact] = useState<ContactDetail | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<ContactListItem | null>(null);
@@ -277,7 +279,7 @@ function ContactActivityBoard() {
 
     const loadTableConfig = useCallback(async () => {
         try {
-            setTableConfig(await getContactTableConfig());
+            setTableConfig(await getReactTableConfig("CONTACT"));
         }
         catch {
             setTableConfig([]);
@@ -587,210 +589,169 @@ function ContactActivityBoard() {
         }
     }, [showMessage]);
     const contactColumns = useMemo<MRT_ColumnDef<ContactListItem>[]>(() => {
-        const baseColumns: MRT_ColumnDef<ContactListItem>[] = [
-            {
-                id: "action",
-                header: "Action",
-                enableSorting: false,
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => (<Box sx={{ display: "flex" }}>
-              {canUpdate && (<>
-                  <IconButton size="small" onClick={(event) => {
-                            event.currentTarget.blur();
-                            blurActiveElement();
-                            openEdit(row.original);
-                        }}><EditOutlinedIcon /></IconButton>
-                  {isAdmin && !row.original.status && (<IconButton size="small" color="error" onClick={(event) => {
-                                event.currentTarget.blur();
-                                blurActiveElement();
-                                setDeleteTarget(row.original);
-                            }}><DeleteOutlineOutlinedIcon /></IconButton>)}
-                </>)}
-            </Box>),
-            },
-            {
-                id: "contactCode",
-                header: "Contact Code",
-                accessorFn: (row: ContactListItem) => displayValue(row.contactCode),
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => (<Button size="small" variant="text" onClick={() => setHistoryContact({
-                        id: row.original.id,
-                        contactCode: row.original.contactCode,
-                    })} title="View contact history" sx={{ color: "#1976d2", fontWeight: 700, textTransform: "none", minWidth: 0, p: 0, textDecoration: "underline", textUnderlineOffset: "2px", cursor: "pointer", "&:hover": { bgcolor: "transparent", color: "#0d47a1", textDecoration: "underline" } }}>
-              {displayValue(row.original.contactCode)}
-            </Button>),
-            },
-            {
-                id: "name",
-                header: "Name",
-                accessorFn: (row: ContactListItem) => displayValue(row.name),
-            },
-            {
-                id: "contactType",
-                header: "Contact Type",
-                accessorFn: (row: ContactListItem) => displayValue(row.contactType),
-            },
-            {
-                id: "mobile",
-                header: "Mobile Number",
-                accessorFn: (row: ContactListItem) => displayValue(row.mobile),
-            },
-            {
-                id: "email",
-                header: "Email ID",
-                accessorFn: (row: ContactListItem) => displayValue(row.email),
-            },
-            {
-                id: "department",
-                header: "Department",
-                accessorFn: (row: ContactListItem) => displayValue(row.department),
-            },
-            {
-                id: "designation",
-                header: "Designation",
-                accessorFn: (row: ContactListItem) => displayValue(row.designation),
-            },
-            {
-                id: "companyName",
-                header: "Company Name",
-                accessorFn: (row: ContactListItem) => displayValue(row.companyName),
-            },
-            {
-                id: "city",
-                header: "City",
-                accessorFn: (row: ContactListItem) => displayValue(row.city),
-            },
-            {
-                id: "photo",
-                header: "Photo",
-                enableSorting: false,
-                size: 72,
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => row.original.photoUuid ? (<PhotoDownloadCell uuid={row.original.photoUuid} fileName={row.original.photoFile?.fileName} onDownload={downloadAttachment}/>) : ("N/A"),
-            },
-            {
-                id: "documents",
-                header: "Documents",
-                enableSorting: false,
-                size: 90,
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => (<DocumentsDownloadCell uuids={row.original.documentUuids || []} files={row.original.documentFiles} onDownload={downloadAttachment}/>),
-            },
-            {
-                id: "status",
-                header: "Status",
-                accessorFn: (row: ContactListItem) => row.status ? "Inactive" : "Active",
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => (<Chip size="small" label={row.original.status
-                        ? "Inactive"
-                        : "Active"} color={row.original.status
-                        ? "error"
-                        : "success"}/>),
-            },
-            {
-                id: "createdBy",
-                header: "Created By",
-                enableSorting: false,
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => {
-                    const id = row.original.createdBy;
-                    return row.original.createdByName || (typeof id === "number" && id > 0 ? auditNames[id] || "N/A" : "N/A");
-                },
-            },
-            {
-                accessorKey: "createdAt",
-                header: "Created At",
-                Cell: ({ cell }) => formatDateTime(cell.getValue<string | null>()),
-            },
-            {
-                id: "updatedBy",
-                header: "Updated By",
-                enableSorting: false,
-                Cell: ({ row }: {
-                    row: MRT_Row<ContactListItem>;
-                }) => {
-                    const id = row.original.updatedBy;
-                    if (!row.original.updatedAt ||
-                        typeof id !== "number" ||
-                        id <= 0) {
-                        return "N/A";
-                    }
-                    return row.original.updatedByName || auditNames[id] || "N/A";
-                },
-            },
-            {
-                accessorKey: "updatedAt",
-                header: "Updated At",
-                Cell: ({ cell }) => formatDateTime(cell.getValue<string | null>()),
-            },
-        ];
-        if (!canUpdate)
-            baseColumns.shift();
-        if (!tableConfig.length)
-            return baseColumns;
-        const normalize = (value: string) => value.replace(/[^a-z0-9]/gi, "").toLowerCase();
-        const configByKey = new Map(tableConfig.map((item) => [
-            normalize(item.key),
-            item,
-        ]));
-        const configured = baseColumns
-            .map((column, index) => {
-            const key = String((column as any).id ??
-                (column as any).accessorKey ??
-                "");
-            const config = configByKey.get(normalize(key));
-            if (!config) {
-                return {
-                    column,
-                    index,
-                    order: Number.MAX_SAFE_INTEGER,
-                };
-            }
-            if (config.visible === false)
-                return null;
-            return {
-                column: {
-                    ...column,
-                    header: config.header ||
-                        String((column as any).header || key),
-                },
-                index,
-                order: Number.isFinite(config.order)
-                    ? Number(config.order)
-                    : index,
-            };
-        })
-            .filter(Boolean) as {
-            column: MRT_ColumnDef<ContactListItem>;
-            index: number;
-            order: number;
-        }[];
-        const fixedOrder: Record<string, number> = {
-            action: 1,
-            contactCode: 2,
-            name: 3,
+        const valueForKey = (row: ContactListItem, key: string): unknown => {
+            if (key === "photo")
+                return row.photoUuid;
+            if (key === "documents")
+                return row.documentUuids;
+            if (key === "createdBy")
+                return row.createdByName ?? row.createdBy;
+            if (key === "updatedBy")
+                return row.updatedByName ?? row.updatedBy;
+            return (row as unknown as Record<string, unknown>)[key];
         };
-        return configured
-            .sort((a, b) => {
-            const aKey = String((a.column as any).id ?? (a.column as any).accessorKey ?? "");
-            const bKey = String((b.column as any).id ?? (b.column as any).accessorKey ?? "");
-            const aPriority = fixedOrder[aKey];
-            const bPriority = fixedOrder[bKey];
-            if (aPriority && bPriority)
-                return aPriority - bPriority;
-            if (aPriority)
-                return -1;
-            if (bPriority)
-                return 1;
-            return a.order - b.order || a.index - b.index;
-        })
-            .map((item) => item.column);
+
+        return tableConfig
+            .filter((item) => item.visible !== false)
+            .filter((item) => item.key !== "action" || canUpdate)
+            .sort((first, second) => Number(first.order ?? 0) - Number(second.order ?? 0))
+            .map((item) => {
+                const column: MRT_ColumnDef<ContactListItem> = {
+                    id: item.key,
+                    header: item.header,
+                    size: item.size,
+                    enableSorting: item.sortable ?? false,
+                    accessorFn: (row: ContactListItem) => valueForKey(row, item.key),
+                };
+
+                if (item.key === "action" || item.renderer === "ACTION") {
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => (
+                        <Box sx={{ display: "flex" }}>
+                            {canUpdate && (
+                                <>
+                                    <IconButton
+                                        size="small"
+                                        onClick={(event) => {
+                                            event.currentTarget.blur();
+                                            blurActiveElement();
+                                            openEdit(row.original);
+                                        }}
+                                    >
+                                        <EditOutlinedIcon />
+                                    </IconButton>
+                                    {isAdmin && !row.original.status && (
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={(event) => {
+                                                event.currentTarget.blur();
+                                                blurActiveElement();
+                                                setDeleteTarget(row.original);
+                                            }}
+                                        >
+                                            <DeleteOutlineOutlinedIcon />
+                                        </IconButton>
+                                    )}
+                                </>
+                            )}
+                        </Box>
+                    );
+                }
+                else if (item.key === "contactCode" || item.renderer === "CONTACT_CODE") {
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => (
+                        <Button
+                            size="small"
+                            variant="text"
+                            onClick={() =>
+                                setHistoryContact({
+                                    id: row.original.id,
+                                    contactCode: row.original.contactCode,
+                                })
+                            }
+                            title="View contact history"
+                            sx={{
+                                color: "#1976d2",
+                                fontWeight: 700,
+                                textTransform: "none",
+                                minWidth: 0,
+                                p: 0,
+                                textDecoration: "underline",
+                                textUnderlineOffset: "2px",
+                                cursor: "pointer",
+                                "&:hover": {
+                                    bgcolor: "transparent",
+                                    color: "#0d47a1",
+                                    textDecoration: "underline",
+                                },
+                            }}
+                        >
+                            {displayValue(row.original.contactCode)}
+                        </Button>
+                    );
+                }
+                else if (item.renderer === "PHOTO" || item.key === "photo") {
+                    column.enableSorting = false;
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) =>
+                        row.original.photoUuid ? (
+                            <PhotoDownloadCell
+                                uuid={row.original.photoUuid}
+                                fileName={row.original.photoFile?.fileName}
+                                onDownload={downloadAttachment}
+                            />
+                        ) : (
+                            <>N/A</>
+                        );
+                }
+                else if (item.renderer === "DOCUMENTS" || item.key === "documents") {
+                    column.enableSorting = false;
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => (
+                        <DocumentsDownloadCell
+                            uuids={row.original.documentUuids || []}
+                            files={row.original.documentFiles}
+                            onDownload={downloadAttachment}
+                        />
+                    );
+                }
+                else if (item.renderer === "STATUS" || item.key === "status") {
+                    column.accessorFn = (row: ContactListItem) =>
+                        row.status ? "Inactive" : "Active";
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => (
+                        <Chip
+                            size="small"
+                            label={row.original.status ? "Inactive" : "Active"}
+                            color={row.original.status ? "error" : "success"}
+                        />
+                    );
+                }
+                else if (item.renderer === "CREATED_BY" || item.key === "createdBy") {
+                    column.enableSorting = false;
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => {
+                        const id = row.original.createdBy;
+                        return (
+                            row.original.createdByName ||
+                            (typeof id === "number" && id > 0
+                                ? auditNames[id] || "N/A"
+                                : "N/A")
+                        );
+                    };
+                }
+                else if (item.renderer === "UPDATED_BY" || item.key === "updatedBy") {
+                    column.enableSorting = false;
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) => {
+                        const id = row.original.updatedBy;
+                        if (
+                            !row.original.updatedAt ||
+                            typeof id !== "number" ||
+                            id <= 0
+                        ) {
+                            return "N/A";
+                        }
+                        return row.original.updatedByName || auditNames[id] || "N/A";
+                    };
+                }
+                else if (item.renderer === "DATETIME") {
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) =>
+                        formatDateTime(
+                            valueForKey(row.original, item.key) as string | null | undefined,
+                        );
+                }
+                else {
+                    column.Cell = ({ row }: { row: MRT_Row<ContactListItem> }) =>
+                        displayValue(valueForKey(row.original, item.key));
+                }
+
+                return column;
+            });
     }, [
         auditNames,
         canUpdate,
@@ -798,108 +759,95 @@ function ContactActivityBoard() {
         isAdmin,
         tableConfig,
     ]);
-    const previewColumns = useMemo<MRT_ColumnDef<ExcelPreviewRow>[]>(() => [
-        {
-            id: "contactType",
-            header: "Contact Type",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.contactType),
-        },
-        {
-            id: "name",
-            header: "Name",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.name),
-        },
-        {
-            accessorKey: "mobile",
-            header: "Mobile",
-        },
-        {
-            accessorKey: "email",
-            header: "Email",
-        },
-        {
-            id: "department",
-            header: "Department",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.department),
-        },
-        {
-            id: "designation",
-            header: "Designation",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.designation),
-        },
-        {
-            id: "companyName",
-            header: "Company Name",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.companyName),
-        },
-        {
-            id: "city",
-            header: "City",
-            accessorFn: (row: ExcelPreviewRow) => displayValue(row.city),
-        },
-        {
-            accessorKey: "previousStatus",
-            header: "Previous Status",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => row.original.previousStatus ? (<Chip size="small" label={row.original.previousStatus} color={row.original.previousStatus ===
-                    "Inactive"
-                    ? "error"
-                    : "success"}/>) : ("N/A"),
-        },
-        {
-            accessorKey: "status",
-            header: "New Status",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => row.original.status ? (<Chip size="small" label={row.original.status} color={row.original.status === "Inactive"
-                    ? "error"
-                    : "success"}/>) : ("N/A"),
-        },
-        {
-            accessorKey: "action",
-            header: "Action",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => row.original.action === "Update" ? (<Chip size="small" color="info" label="Update"/>) : row.original.action === "New" ? (<Chip size="small" color="success" label="New Save"/>) : ("N/A"),
-        },
-        {
-            accessorKey: "updateType",
-            header: "Update Type",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => row.original.updateType || "N/A",
-        },
-        {
-            accessorKey: "changedFields",
-            header: "Changed Fields",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => row.original.changedFields || "N/A",
-        },
-        {
-            accessorKey: "error",
-            header: "Result",
-            Cell: ({ row }: {
-                row: MRT_Row<ExcelPreviewRow>;
-            }) => {
-                const result = row.original.error;
-                if (!result) {
-                    return (<Chip size="small" color="success" label="Correct"/>);
+
+    const previewColumns = useMemo<MRT_ColumnDef<ExcelPreviewRow>[]>(() => {
+        const valueForKey = (row: ExcelPreviewRow, key: string): unknown =>
+            (row as unknown as Record<string, unknown>)[key];
+
+        return previewTableConfig
+            .filter((item) => item.visible !== false)
+            .sort((first, second) => Number(first.order ?? 0) - Number(second.order ?? 0))
+            .map((item) => {
+                const column: MRT_ColumnDef<ExcelPreviewRow> = {
+                    id: item.key,
+                    header: item.header,
+                    size: item.size,
+                    enableSorting: item.sortable ?? false,
+                    accessorFn: (row: ExcelPreviewRow) => valueForKey(row, item.key),
+                };
+
+                if (item.renderer === "PREVIOUS_STATUS" || item.key === "previousStatus") {
+                    column.Cell = ({ row }: { row: MRT_Row<ExcelPreviewRow> }) =>
+                        row.original.previousStatus ? (
+                            <Chip
+                                size="small"
+                                label={row.original.previousStatus}
+                                color={
+                                    row.original.previousStatus === "Inactive"
+                                        ? "error"
+                                        : "success"
+                                }
+                            />
+                        ) : (
+                            <>N/A</>
+                        );
                 }
-                if (result === "Saved") {
-                    return (<Chip size="small" color="success" label="Saved"/>);
+                else if (item.renderer === "STATUS_TEXT" || item.key === "status") {
+                    column.Cell = ({ row }: { row: MRT_Row<ExcelPreviewRow> }) =>
+                        row.original.status ? (
+                            <Chip
+                                size="small"
+                                label={row.original.status}
+                                color={
+                                    row.original.status === "Inactive"
+                                        ? "error"
+                                        : "success"
+                                }
+                            />
+                        ) : (
+                            <>N/A</>
+                        );
                 }
-                const duplicate = result
-                    .toLowerCase()
-                    .includes("duplicate") ||
-                    result
-                        .toLowerCase()
-                        .includes("already exist");
-                return (<Chip size="small" color={duplicate ? "warning" : "error"} label={result}/>);
-            },
-        },
-    ], []);
+                else if (item.renderer === "EXCEL_ACTION" || item.key === "action") {
+                    column.Cell = ({ row }: { row: MRT_Row<ExcelPreviewRow> }) =>
+                        row.original.action === "Update" ? (
+                            <Chip size="small" color="info" label="Update" />
+                        ) : row.original.action === "New" ? (
+                            <Chip size="small" color="success" label="New Save" />
+                        ) : (
+                            <>N/A</>
+                        );
+                }
+                else if (item.renderer === "EXCEL_RESULT" || item.key === "error") {
+                    column.Cell = ({ row }: { row: MRT_Row<ExcelPreviewRow> }) => {
+                        const result = row.original.error;
+                        if (!result) {
+                            return <Chip size="small" color="success" label="Correct" />;
+                        }
+                        if (result === "Saved") {
+                            return <Chip size="small" color="success" label="Saved" />;
+                        }
+                        const duplicate =
+                            result.toLowerCase().includes("duplicate") ||
+                            result.toLowerCase().includes("already exist");
+                        return (
+                            <Chip
+                                size="small"
+                                color={duplicate ? "warning" : "error"}
+                                label={result}
+                            />
+                        );
+                    };
+                }
+                else {
+                    column.Cell = ({ row }: { row: MRT_Row<ExcelPreviewRow> }) =>
+                        displayValue(valueForKey(row.original, item.key));
+                }
+
+                return column;
+            });
+    }, [previewTableConfig]);
+
     const openEdit = (contact: ContactListItem) => {
         blurActiveElement();
         setEditingContact(contact);
@@ -978,6 +926,13 @@ function ContactActivityBoard() {
         setValidatingExcel(true);
         try {
             const response = await validateContactsExcel(excelFile);
+
+            if (!previewTableConfig.length) {
+                setPreviewTableConfig(
+                    await getReactTableConfig("CONTACT_EXCEL_PREVIEW"),
+                );
+            }
+
             setExcelNew(response.data.newRecords);
             setExcelUpdates(response.data.updateRecords);
             setExcelDuplicates(response.data.duplicates);

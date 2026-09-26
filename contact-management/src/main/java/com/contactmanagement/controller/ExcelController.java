@@ -35,11 +35,13 @@ public class ExcelController {
     public ApiResponse<Map<String, Object>> validate(@RequestParam MultipartFile file) {
         return processor.validate(file);
     }
+
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod')")
     @PostMapping("import")
     public ApiResponse<Map<String, Object>> importExcel(@RequestParam MultipartFile file) {
         return processor.importExcel(file);
     }
+
     @PreAuthorize("@securityUtil.hasAuthority('admin')")
     @PostMapping("export")
     public ResponseEntity<byte[]> export(@RequestBody List<com.contactmanagement.common.dto.ContactDataDto> contacts) {
@@ -54,6 +56,7 @@ public class ExcelController {
     ) {
         return approvalService.pending(page, size);
     }
+
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod')")
     @GetMapping("format")
     public ResponseEntity<byte[]> format() {
