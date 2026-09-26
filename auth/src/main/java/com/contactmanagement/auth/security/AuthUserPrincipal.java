@@ -1,10 +1,12 @@
 package com.contactmanagement.auth.security;
 
+import lombok.Getter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
 import java.util.List;
 
+@Getter
 public class AuthUserPrincipal extends User {
     private final Long id;
 
@@ -13,7 +15,4 @@ public class AuthUserPrincipal extends User {
         this.id = id;
     }
 
-    public Long getId() {
-        return id;
-    }
 }

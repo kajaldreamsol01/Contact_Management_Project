@@ -1350,7 +1350,7 @@ function Dashboard() {
     <Box sx={{ pb: 4 }}>
       <Box sx={{ mb: 2.5 }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: "#0f172a" }}>Contact Dashboard</Typography>
-        <Typography variant="body2" color="text.secondary">Contact analytics with graph/table drill-down.</Typography>
+        {/* <Typography variant="body2" color="text.secondary">Contact analytics with graph/table drill-down.</Typography> */}
       </Box>
 
       <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #dbe7e5", borderRadius: 2 }}>

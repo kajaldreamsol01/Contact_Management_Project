@@ -1,7 +1,7 @@
 package com.contactmanagement.user.controller;
 
-import com.contactmanagement.user.dto.UserAuthResponseDto;
-import com.contactmanagement.user.response.ApiResponse;
+import com.contactmanagement.common.dto.UserAuthResponseDto;
+import com.contactmanagement.common.response.ApiResponse;
 import com.contactmanagement.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("internal/users")
 @RequiredArgsConstructor
 public class InternalUserController {
-
     private final UserService service;
 
     @GetMapping("by-email")

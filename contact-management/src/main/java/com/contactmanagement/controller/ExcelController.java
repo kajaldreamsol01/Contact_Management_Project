@@ -2,7 +2,7 @@ package com.contactmanagement.controller;
 
 import com.contactmanagement.dto.ExcelDownloadApprovalRequestDto;
 import com.contactmanagement.processor.ExcelProcessor;
-import com.contactmanagement.response.ApiResponse;
+import com.contactmanagement.common.response.ApiResponse;
 import com.contactmanagement.security.SecurityUtil;
 import com.contactmanagement.service.ContactService;
 import com.contactmanagement.service.ExcelDownloadApprovalService;
@@ -35,32 +35,15 @@ public class ExcelController {
     public ApiResponse<Map<String, Object>> validate(@RequestParam MultipartFile file) {
         return processor.validate(file);
     }
-
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod')")
     @PostMapping("import")
     public ApiResponse<Map<String, Object>> importExcel(@RequestParam MultipartFile file) {
         return processor.importExcel(file);
     }
-
-    // Raw grid-data export is ADMIN only.
-    // HOD / MANAGEMENT / USER must create an approval request first.
     @PreAuthorize("@securityUtil.hasAuthority('admin')")
     @PostMapping("export")
     public ResponseEntity<byte[]> export(@RequestBody List<com.contactmanagement.common.dto.ContactDataDto> contacts) {
         return processor.export(contacts);
-    }
-
-    @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod') or @securityUtil.hasAuthority('management') or @securityUtil.hasAuthority('user')")
-    @PostMapping("download-request")
-    public ApiResponse<Map<String, Object>> requestDownload(
-            @RequestBody ExcelDownloadApprovalRequestDto request
-    ) {
-        return approvalService.request(
-                request,
-                contactService.authenticatedUserId(),
-                contactService.authenticatedUserEmail(),
-                securityUtil.hasAuthority("admin")
-        );
     }
 
     @PreAuthorize("@securityUtil.hasAuthority('admin')")
@@ -71,19 +54,6 @@ public class ExcelController {
     ) {
         return approvalService.pending(page, size);
     }
-
-    @PreAuthorize("@securityUtil.hasAuthority('admin')")
-    @PostMapping("download-request/{id}/approve")
-    public ApiResponse<Map<String, Object>> approve(@PathVariable Long id) {
-        return approvalService.approve(id, contactService.authenticatedUserEmail());
-    }
-
-    @PreAuthorize("@securityUtil.hasAuthority('admin')")
-    @PostMapping("download-request/{id}/reject")
-    public ApiResponse<Map<String, Object>> reject(@PathVariable Long id) {
-        return approvalService.reject(id, contactService.authenticatedUserEmail());
-    }
-
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod')")
     @GetMapping("format")
     public ResponseEntity<byte[]> format() {

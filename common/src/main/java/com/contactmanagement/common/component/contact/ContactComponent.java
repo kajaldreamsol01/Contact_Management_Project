@@ -1,20 +1,15 @@
 package com.contactmanagement.common.component.contact;
 
-import com.contactmanagement.common.component.excel.ExcelComponent;
-import com.contactmanagement.common.component.excel.ExcelDownloadComponent;
+import com.contactmanagement.common.component.excel.*;
 import com.contactmanagement.common.component.notification.NotificationComponent;
 import com.contactmanagement.common.component.validation.ValidationComponent;
-import com.contactmanagement.common.dto.ContactDataDto;
-import com.contactmanagement.common.dto.ContactRequestDto;
-import com.contactmanagement.common.dto.OperationSummaryDto;
+import com.contactmanagement.common.dto.*;
 import com.contactmanagement.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Component
 @RequiredArgsConstructor
@@ -28,9 +23,8 @@ public class ContactComponent {
     }
 
     public void notifyForm(boolean update, int total, int success, int duplicate, int invalid) {
-        if (success <= 0)
-            return;
-        notificationComponent.createForm(new OperationSummaryDto(update, total, success, duplicate, invalid));
+        if (success > 0)
+            notificationComponent.createForm(new OperationSummaryDto(update, total, success, duplicate, invalid));
     }
 
     public void notifyImport(int total, int saved, int updated, int duplicate, int invalid, byte[] attachment) {
@@ -39,10 +33,9 @@ public class ContactComponent {
 
     public ResponseEntity<byte[]> downloadExcel(String fileName, List<ContactDataDto> contacts) {
         try {
-            byte[] data = ExcelComponent.export(Objects.requireNonNullElse(contacts, List.of()));
-            return excelDownloadComponent.download(fileName, data);
-        } catch (Exception exception) {
-            throw new IllegalStateException("Unable to export contacts", exception);
+            return excelDownloadComponent.download(fileName, ExcelComponent.export(Objects.requireNonNullElse(contacts, List.of())));
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to export contacts", e);
         }
     }
 }

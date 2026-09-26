@@ -2,10 +2,9 @@ package com.contactmanagement.common.component.redis;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ConfigurableObjectInputStream;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.core.ConfigurableObjectInputStream;
-import tools.jackson.databind.JavaType;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.*;
@@ -24,7 +23,7 @@ public class RedisComponent {
             String v = redis.opsForValue().get(key);
             return v == null ? null : mapper.readValue(v, type);
         } catch (Exception e) {
-            log.warn("Redis get failed key={}: {}", key, e.getMessage());
+            warn("get", key, e);
             return null;
         }
     }
@@ -33,7 +32,7 @@ public class RedisComponent {
         try {
             redis.opsForValue().set(key, mapper.writeValueAsString(value), ttl);
         } catch (Exception e) {
-            log.warn("Redis set failed key={}: {}", key, e.getMessage());
+            warn("set", key, e);
         }
     }
 
@@ -41,13 +40,11 @@ public class RedisComponent {
         try {
             String v = redis.opsForValue().get(key);
             if (v == null) return null;
-            ClassLoader loader = Thread.currentThread().getContextClassLoader();
-            try (ConfigurableObjectInputStream in = new ConfigurableObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(v)), loader)) {
-                Object value = in.readObject();
-                return type.cast(value);
+            try (var in = new ConfigurableObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(v)), Thread.currentThread().getContextClassLoader())) {
+                return type.cast(in.readObject());
             }
         } catch (Exception e) {
-            log.warn("Redis object get failed key={}: {}", key, e.getMessage());
+            warn("object get", key, e);
             delete(key);
             return null;
         }
@@ -55,13 +52,13 @@ public class RedisComponent {
 
     public void setObject(String key, Serializable value, Duration ttl) {
         try {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try (ObjectOutputStream stream = new ObjectOutputStream(out)) {
+            var out = new ByteArrayOutputStream();
+            try (var stream = new ObjectOutputStream(out)) {
                 stream.writeObject(value);
             }
             redis.opsForValue().set(key, Base64.getEncoder().encodeToString(out.toByteArray()), ttl);
         } catch (Exception e) {
-            log.warn("Redis object set failed key={}: {}", key, e.getMessage());
+            warn("object set", key, e);
         }
     }
 
@@ -69,7 +66,7 @@ public class RedisComponent {
         try {
             return redis.opsForValue().get(key);
         } catch (Exception e) {
-            log.warn("Redis string get failed key={}: {}", key, e.getMessage());
+            warn("string get", key, e);
             return null;
         }
     }
@@ -78,7 +75,7 @@ public class RedisComponent {
         try {
             redis.delete(key);
         } catch (Exception e) {
-            log.warn("Redis delete failed key={}: {}", key, e.getMessage());
+            warn("delete", key, e);
         }
     }
 
@@ -87,8 +84,12 @@ public class RedisComponent {
             Long v = redis.opsForValue().increment(key);
             return v == null ? 0 : v;
         } catch (Exception e) {
-            log.warn("Redis increment failed key={}: {}", key, e.getMessage());
+            warn("increment", key, e);
             return 0;
         }
+    }
+
+    private void warn(String action, String key, Exception e) {
+        log.warn("Redis {} failed key={}: {}", action, key, e.getMessage());
     }
 }

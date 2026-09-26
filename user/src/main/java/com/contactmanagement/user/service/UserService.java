@@ -1,12 +1,13 @@
 package com.contactmanagement.user.service;
 
+import com.contactmanagement.common.dto.UserAuthResponseDto;
+import com.contactmanagement.common.response.ApiResponse;
+import com.contactmanagement.common.util.PaginationUtil;
 import com.contactmanagement.user.dto.*;
 import com.contactmanagement.user.entity.AppUser;
 import com.contactmanagement.user.repository.UserRepository;
-import com.contactmanagement.user.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -21,63 +22,60 @@ public class UserService {
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
 
-    public ApiResponse<UserResponseDto> save(UserRequestDto request) {
-        boolean update = Objects.nonNull(request.getId());
-        AppUser user = update ? repository.findById(request.getId()).orElse(null) : new AppUser();
-        if (Objects.isNull(user)) return ApiResponse.response("FAILED", "User not found");
-        String email = request.getEmail().trim().toLowerCase(Locale.ROOT), role = normalizeRole(request.getRole());
-        if (Objects.isNull(role)) return ApiResponse.response("FAILED", "Invalid role");
-        if (repository.existsByEmailIgnoreCaseAndIdNot(email, Objects.requireNonNullElse(request.getId(), 0L)))
+    public ApiResponse<UserResponseDto> save(UserRequestDto r) {
+        boolean update = r.getId() != null;
+        AppUser u = update ? repository.findById(r.getId()).orElse(null) : new AppUser();
+        if (u == null) return ApiResponse.response("FAILED", "User not found");
+        String email = r.getEmail().trim().toLowerCase(Locale.ROOT), role = role(r.getRole());
+        if (role == null) return ApiResponse.response("FAILED", "Invalid role");
+        if (repository.existsByEmailIgnoreCaseAndIdNot(email, Objects.requireNonNullElse(r.getId(), 0L)))
             return ApiResponse.response("FAILED", "Email already exists");
-        if (!update && !StringUtils.hasText(request.getPassword()))
+        if (!update && !StringUtils.hasText(r.getPassword()))
             return ApiResponse.response("FAILED", "Password is required");
-        user.setName(request.getName().trim());
-        user.setEmail(email);
-        user.setPhone(trim(request.getPhone()));
-        user.setRole(role);
-        if (StringUtils.hasText(request.getPassword())) user.setPassword(passwordEncoder.encode(request.getPassword()));
-        if (!update || Objects.nonNull(request.getStatus()))
-            user.setStatus(Objects.requireNonNullElse(request.getStatus(), false));
-        return ApiResponse.response("SUCCESS", update ? "User updated successfully" : "User saved successfully", map(repository.save(user)));
+        u.setName(r.getName().trim());
+        u.setEmail(email);
+        u.setPhone(text(r.getPhone()));
+        u.setRole(role);
+        if (StringUtils.hasText(r.getPassword())) u.setPassword(passwordEncoder.encode(r.getPassword()));
+        if (!update || r.getStatus() != null) u.setStatus(Objects.requireNonNullElse(r.getStatus(), false));
+        return ApiResponse.response("SUCCESS", update ? "User updated successfully" : "User saved successfully", map(repository.save(u)));
     }
 
-    public ApiResponse<Page<UserResponseDto>> list(Pageable pageable) {
-        return ApiResponse.response("SUCCESS", "Users fetched successfully", repository.findAll(pageable).map(this::map));
+    public ApiResponse<Page<UserResponseDto>> list(Pageable p) {
+        return ApiResponse.response("SUCCESS", "Users fetched successfully", repository.findAll(PaginationUtil.normalize(p, 10, 100)).map(this::map));
     }
 
     public ApiResponse<UserResponseDto> get(Long id) {
-        return repository.findById(id).map(user -> ApiResponse.response("SUCCESS", "User fetched successfully", map(user))).orElseGet(() -> ApiResponse.response("FAILED", "User not found"));
+        return repository.findById(id).map(u -> ApiResponse.response("SUCCESS", "User fetched successfully", map(u))).orElseGet(() -> ApiResponse.response("FAILED", "User not found"));
     }
 
     public ApiResponse<Map<Long, String>> names(List<Long> ids) {
-        if (Objects.isNull(ids) || ids.isEmpty())
-            return ApiResponse.response("SUCCESS", "User names fetched successfully", Map.of());
-        Map<Long, String> names = repository.findAllById(new LinkedHashSet<>(ids)).stream().collect(Collectors.toMap(AppUser::getId, AppUser::getName, (a, b) -> a, LinkedHashMap::new));
-        return ApiResponse.response("SUCCESS", "User names fetched successfully", names);
+        Map<Long, String> data = ids == null || ids.isEmpty() ? Map.of() : repository.findAllById(new LinkedHashSet<>(ids)).stream().collect(Collectors.toMap(AppUser::getId, AppUser::getName, (a, b) -> a, LinkedHashMap::new));
+        return ApiResponse.response("SUCCESS", "User names fetched successfully", data);
     }
 
     public ApiResponse<Void> delete(Long id) {
-        return repository.findById(id).map(user -> {
-            user.setStatus(true);
-            repository.save(user);
+        return repository.findById(id).map(u -> {
+            u.setStatus(true);
+            repository.save(u);
             return ApiResponse.<Void>response("SUCCESS", "User marked inactive successfully");
         }).orElseGet(() -> ApiResponse.response("FAILED", "User not found"));
     }
 
     public ApiResponse<UserAuthResponseDto> authUser(String email) {
-        return repository.findByEmailIgnoreCase(email).filter(user -> !user.isStatus()).map(user -> ApiResponse.response("SUCCESS", "User fetched successfully", new UserAuthResponseDto(user.getId(), user.getEmail(), user.getPassword(), user.getRole(), user.isStatus()))).orElseGet(() -> ApiResponse.response("FAILED", "User not found"));
+        return repository.findByEmailIgnoreCase(email).filter(u -> !u.isStatus()).map(u -> ApiResponse.response("SUCCESS", "User fetched successfully", new UserAuthResponseDto(u.getId(), u.getEmail(), u.getPassword(), u.getRole(), u.isStatus()))).orElseGet(() -> ApiResponse.response("FAILED", "User not found"));
     }
 
-    private UserResponseDto map(AppUser user) {
-        return new UserResponseDto(user.getId(), user.getName(), user.getEmail(), user.getPhone(), user.getRole(), user.isStatus());
+    private UserResponseDto map(AppUser u) {
+        return new UserResponseDto(u.getId(), u.getName(), u.getEmail(), u.getPhone(), u.getRole(), u.isStatus());
     }
 
-    private String normalizeRole(String role) {
-        String value = Objects.toString(role, "").trim().toUpperCase(Locale.ROOT).replace("ROLE_", "");
-        return ROLES.contains(value) ? value : null;
+    private String role(String role) {
+        String v = Objects.toString(role, "").trim().toUpperCase(Locale.ROOT).replace("ROLE_", "");
+        return ROLES.contains(v) ? v : null;
     }
 
-    private String trim(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
+    private String text(String v) {
+        return StringUtils.hasText(v) ? v.trim() : null;
     }
 }

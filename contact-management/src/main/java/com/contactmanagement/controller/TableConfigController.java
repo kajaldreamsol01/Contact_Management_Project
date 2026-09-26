@@ -2,7 +2,7 @@ package com.contactmanagement.controller;
 
 import com.contactmanagement.common.component.table.ReactTableHeaderComponent;
 import com.contactmanagement.common.component.table.TableColumnConfig;
-import com.contactmanagement.response.ApiResponse;
+import com.contactmanagement.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

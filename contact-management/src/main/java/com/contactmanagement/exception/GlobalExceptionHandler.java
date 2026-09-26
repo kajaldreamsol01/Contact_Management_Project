@@ -1,6 +1,6 @@
 package com.contactmanagement.exception;
 
-import com.contactmanagement.response.ApiResponse;
+import com.contactmanagement.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.ResponseEntity;

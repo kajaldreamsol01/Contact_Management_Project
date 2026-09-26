@@ -740,62 +740,6 @@ export const saveContact = async (
   }
 }
 
-export type ContactSaveWithFiles = ContactRequestDto & {
-  photo?: File | null
-  documents?: File[]
-}
-
-export const saveContactWithFiles = async (
-  payload: ContactSaveWithFiles | ContactSaveWithFiles[],
-): Promise<{
-  message: string
-  data: BulkSaveResult
-}> => {
-  const forms = Array.isArray(payload)
-    ? payload
-    : [payload]
-
-  const contacts = forms.map(
-    ({ photo: _photo, documents: _documents, ...dto }) => dto,
-  )
-
-  const body = new FormData()
-  body.append('contacts', JSON.stringify(contacts))
-
-  forms.forEach((form, index) => {
-    if (form.photo)
-      body.append(`photo_${index}`, form.photo, form.photo.name)
-
-    ;(form.documents || []).forEach((file) =>
-      body.append(`documents_${index}`, file, file.name),
-    )
-  })
-
-  const response = await axios.post(`${API}/save`, body)
-
-  const result = ensureSuccess<any>(
-    response.data,
-    'Unable to save contacts',
-  )
-
-  const data = normalizeSaveResult(result.data)
-
-  if (!Array.isArray(payload) && !data.saved.length) {
-    throw new Error(
-      data.duplicates[0]?.message ||
-      data.invalid[0]?.message ||
-      'Unable to save contact',
-    )
-  }
-
-  notifyChanged()
-
-  return {
-    message: result.message || 'Contacts saved successfully',
-    data,
-  }
-}
-
 export const getDropdowns = async (): Promise<ContactDropdownData> => {
   const response = await axios.get(`${MASTER_API}/dropdown`)
 
@@ -1269,40 +1213,15 @@ export const downloadContactsExcel = async (
   params: ContactSearchParams = {},
 ): Promise<Blob> => {
   const response = await axios.get(
-    `${API}/filter`,
+    `${API}/excel/download`,
     {
-      params: {
-        ...params,
-        page: 0,
-        size: 10000,
-        sort: 'id',
-        direction: 'desc',
-      },
-    },
-  )
-
-  const result = ensureSuccess<any>(
-    response.data,
-    'Unable to load contacts for Excel',
-  )
-
-  const contacts = Array.isArray(
-    result.data?.content,
-  )
-    ? result.data.content
-    : []
-
-  const exportResponse = await axios.post(
-    `/contact/excel/export`,
-    contacts,
-    {
+      params,
       responseType: 'blob',
     },
   )
 
-  return exportResponse.data
+  return response.data
 }
-
 export const requestContactsExcelDownload = async (
   params: ContactSearchParams = {},
 ): Promise<{

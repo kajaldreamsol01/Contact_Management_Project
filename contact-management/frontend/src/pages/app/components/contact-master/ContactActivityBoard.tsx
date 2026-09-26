@@ -131,7 +131,7 @@ function DocumentsDownloadCell({ uuids, files, onDownload, }: {
 }
 function ContactActivityBoard() {
     const dispatch = useAppDispatch();
-    const { content: contacts, loading, error: contactError, } = useAppSelector((state) => state.contacts);
+    const { content: contacts, loading, error: contactError, totalElements, } = useAppSelector((state) => state.contacts);
     const { draftFilters, appliedFilters, dropdowns: storedDropdowns, roles, } = useAppSelector((state) => state.ui);
     const isAdmin = roles.includes("ADMIN");
     const isManagement = roles.includes("MANAGEMENT");
@@ -139,7 +139,7 @@ function ContactActivityBoard() {
     const canDownloadGrid = roles.some((role) => ["ADMIN", "HOD", "MANAGEMENT", "USER"].includes(role));
     const masterDropdowns = storedDropdowns ?? EMPTY_DROPDOWNS;
     const [filterDropdowns, setFilterDropdowns] = useState<ContactDropdownData>(EMPTY_DROPDOWNS);
-    const [, setPagination] = useState<MRT_PaginationState>({
+    const [pagination, setPagination] = useState<MRT_PaginationState>({
         pageIndex: 0,
         pageSize: 10,
     });
@@ -195,7 +195,7 @@ function ContactActivityBoard() {
             ...toApiFilters(defaults),
             search: undefined,
             page: 0,
-            size: 10000,
+            size: pagination.pageSize,
             sort: defaults.sortBy || "id",
             direction: defaults.sortDirection || "desc",
         };
@@ -211,7 +211,7 @@ function ContactActivityBoard() {
             if (lastContactRequestRef.current === requestKey)
                 lastContactRequestRef.current = "";
         }
-    }, [dispatch]);
+    }, [dispatch, pagination.pageSize]);
     const loadCounts = useCallback(async (mode: "date" | "beginning" = tileMode, filters: ContactFilters = draftFilters) => {
         try {
             const data = await getStatusCount(mode === "date"
@@ -246,12 +246,35 @@ function ContactActivityBoard() {
         await dispatch(filterContacts({
             ...request,
             page: 0,
-            size: 10000,
+            size: pagination.pageSize,
             sort: appliedFilters.sortBy || "id",
             direction: appliedFilters.sortDirection || "desc",
         })).unwrap();
         await Promise.all([loadCounts(tileMode, appliedFilters), loadDropdowns(true)]);
-    }, [appliedFilters, dispatch, loadCounts, loadDropdowns, tileMode]);
+    }, [appliedFilters, dispatch, loadCounts, loadDropdowns, pagination.pageSize, tileMode]);
+
+    const loadPage = useCallback(async (nextPagination: MRT_PaginationState) => {
+        const request = appliedFilters.search.trim()
+            ? { search: appliedFilters.search.trim() }
+            : tileMode === "beginning"
+                ? { status: appliedFilters.status === "Active" ? false : appliedFilters.status === "Inactive" ? true : undefined }
+                : toApiFilters(appliedFilters);
+        await dispatch(filterContacts({
+            ...request,
+            page: nextPagination.pageIndex,
+            size: nextPagination.pageSize,
+            sort: appliedFilters.sortBy || "id",
+            direction: appliedFilters.sortDirection || "desc",
+        })).unwrap();
+    }, [appliedFilters, dispatch, tileMode]);
+
+    const handlePaginationChange = useCallback((next: MRT_PaginationState) => {
+        setRecentlyUpdatedId(null);
+        setRecentlySavedCode("");
+        setPagination(next);
+        void loadPage(next);
+    }, [loadPage]);
+
     const loadTableConfig = useCallback(async () => {
         try {
             setTableConfig(await getContactTableConfig());
@@ -380,7 +403,7 @@ function ContactActivityBoard() {
         setPagination((value) => ({ ...value, pageIndex: 0 }));
         await Promise.all([
             dispatch(filterContacts({
-                ...toApiFilters(nextFilters), search: undefined, page: 0, size: 10000,
+                ...toApiFilters(nextFilters), search: undefined, page: 0, size: pagination.pageSize,
                 sort: nextFilters.sortBy || "id", direction: nextFilters.sortDirection || "desc",
             })).unwrap(),
             loadCounts("date", nextFilters),
@@ -401,7 +424,7 @@ function ContactActivityBoard() {
             dispatch(filterContacts({
                 search: cleanSearch,
                 page: 0,
-                size: 10000,
+                size: pagination.pageSize,
                 sort: draftFilters.sortBy || "id",
                 direction: draftFilters.sortDirection || "desc",
             })).unwrap(),
@@ -423,7 +446,7 @@ function ContactActivityBoard() {
         dispatch(setAppliedFiltersAction(nextFilters));
         await Promise.all([
             dispatch(filterContacts({
-                ...toApiFilters(nextFilters), search: undefined, page: 0, size: 10000,
+                ...toApiFilters(nextFilters), search: undefined, page: 0, size: pagination.pageSize,
                 sort: "id", direction: "desc",
             })).unwrap(),
             loadCounts("date", nextFilters),
@@ -448,7 +471,7 @@ function ContactActivityBoard() {
         dispatch(setAppliedFiltersAction(nextFilters));
         await Promise.all([
             dispatch(filterContacts({
-                ...toApiFilters(nextFilters), search: undefined, page: 0, size: 10000,
+                ...toApiFilters(nextFilters), search: undefined, page: 0, size: pagination.pageSize,
                 sort: nextFilters.sortBy || "id", direction: nextFilters.sortDirection || "desc",
             })).unwrap(),
             loadCounts("date", nextFilters),
@@ -465,19 +488,15 @@ function ContactActivityBoard() {
             sortBy: draftFilters.sortBy, sortDirection: draftFilters.sortDirection,
         };
         setPagination((page) => ({ ...page, pageIndex: 0 }));
-        const page = await dispatch(filterContacts({
+        await dispatch(filterContacts({
             status: status === "Active" ? false : status === "Inactive" ? true : undefined,
             fromDate: tileMode === "date" ? draftFilters.fromDate || undefined : undefined,
             toDate: tileMode === "date" ? draftFilters.toDate || undefined : undefined,
-            page: 0, size: 10000, sort: draftFilters.sortBy || "id", direction: draftFilters.sortDirection || "desc",
+            page: 0, size: pagination.pageSize, sort: draftFilters.sortBy || "id", direction: draftFilters.sortDirection || "desc",
         })).unwrap();
         if (tileMode === "beginning") {
-            const dates = page.content.map((contact) => contact.createdAt ? String(contact.createdAt).slice(0, 10) : "").filter(Boolean).sort();
-            const now = new Date();
-            const toDate = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
-            const range = { ...nextApplied, fromDate: dates[0] || toDate, toDate };
-            dispatch(setDraftFiltersAction({ ...draftFilters, status, fromDate: range.fromDate, toDate: range.toDate }));
-            dispatch(setAppliedFiltersAction(range));
+            dispatch(setDraftFiltersAction({ ...draftFilters, status, fromDate: "", toDate: "" }));
+            dispatch(setAppliedFiltersAction(nextApplied));
         }
         else {
             setDateModeRange({ fromDate: draftFilters.fromDate, toDate: draftFilters.toDate });
@@ -542,7 +561,7 @@ function ContactActivityBoard() {
         await dispatch(filterContacts({
             ...request,
             page: 0,
-            size: 10000,
+            size: pagination.pageSize,
             sort: nextApplied.sortBy || "id",
             direction: nextApplied.sortDirection || "desc",
         })).unwrap();
@@ -1088,39 +1107,7 @@ function ContactActivityBoard() {
         }
         return contacts;
     }, [contacts, recentlySavedCode, recentlyUpdatedId]);
-    const draftResultCount = useMemo(() => {
-        const equals = (value: unknown, filter: string) => String(value ?? "").trim().toLowerCase() === filter.trim().toLowerCase();
-        const dateOnly = (value?: string | null) => value ? String(value).slice(0, 10) : "";
-        return contacts.filter((contact) => {
-            if (draftFilters.name && !equals(contact.name, draftFilters.name))
-                return false;
-            if (draftFilters.contactType && !equals(contact.contactType, draftFilters.contactType))
-                return false;
-            if (draftFilters.department && !equals(contact.department, draftFilters.department))
-                return false;
-            if (draftFilters.city && !equals(contact.city, draftFilters.city))
-                return false;
-            if (draftFilters.status === "Active" && contact.status)
-                return false;
-            if (draftFilters.status === "Inactive" && !contact.status)
-                return false;
-            if (tileMode === "date") {
-                const createdDate = dateOnly(contact.createdAt);
-                if (draftFilters.fromDate && createdDate && createdDate < draftFilters.fromDate)
-                    return false;
-                if (draftFilters.toDate && createdDate && createdDate > draftFilters.toDate)
-                    return false;
-            }
-            return true;
-        }).length;
-    }, [contacts, draftFilters, tileMode]);
-    const displayedResultCount = tileMode === "beginning"
-        ? selectedTile === "active"
-            ? counts.active
-            : selectedTile === "inactive"
-                ? counts.inactive
-                : counts.total
-        : draftResultCount;
+    const displayedResultCount = totalElements;
     const labels = useMemo(() => getAppliedFilterLabels(draftFilters), [draftFilters]);
     const dialogTitleSx = {
         bgcolor: "#0f9187",
@@ -1247,7 +1234,7 @@ function ContactActivityBoard() {
         </Box>
       </Paper>
       <Paper elevation={0} sx={{ p: 1, mb: 1, border: "1px solid #d6e4e1", borderRadius: 1.5, overflow: "hidden", }}>
-        <ReactTable columns={contactColumns} data={visibleContacts} rowCount={visibleContacts.length} loading={loading} defaultPageSize={10} key={`${tableResetKey}|${tileMode}|${appliedFilters.search}|${appliedFilters.name}|${appliedFilters.contactType}|${appliedFilters.department}|${appliedFilters.city}|${appliedFilters.status}|${appliedFilters.fromDate}|${appliedFilters.toDate}|${appliedFilters.sortBy}|${appliedFilters.sortDirection}`} sorting={sorting} onSortingChange={(next) => {
+        <ReactTable columns={contactColumns} data={visibleContacts} rowCount={totalElements} loading={loading} pagination={pagination} onPaginationChange={handlePaginationChange} manualPagination defaultPageSize={10} key={`${tableResetKey}|${tileMode}|${appliedFilters.search}|${appliedFilters.name}|${appliedFilters.contactType}|${appliedFilters.department}|${appliedFilters.city}|${appliedFilters.status}|${appliedFilters.fromDate}|${appliedFilters.toDate}|${appliedFilters.sortBy}|${appliedFilters.sortDirection}`} sorting={sorting} onSortingChange={(next) => {
             setSorting((current) => JSON.stringify(current) === JSON.stringify(next)
                 ? current
                 : next);

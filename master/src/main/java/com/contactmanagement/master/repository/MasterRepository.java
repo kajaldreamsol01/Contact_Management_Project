@@ -10,10 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MasterRepository extends JpaRepository<MasterEntity, Long> {
-
     Page<MasterEntity> findAllByType(MasterType type, Pageable pageable);
-
-    List<MasterEntity> findAllByTypeOrderByNameAsc(MasterType type);
 
     List<MasterEntity> findAllByTypeAndStatusFalseOrderByNameAsc(MasterType type);
 

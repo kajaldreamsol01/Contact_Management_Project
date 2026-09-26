@@ -7,19 +7,13 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApiResponse<T> {
-    private String status;
-    private String message;
+    private String status, message;
     private T data;
     private String error;
 
     public static <T> ApiResponse<T> response(String status, String message, T data) {
-        boolean success = "SUCCESS".equalsIgnoreCase(status);
-        return new ApiResponse<>(
-                success ? "SUCCESS" : "FAILED",
-                success ? message : null,
-                data,
-                success ? null : message
-        );
+        boolean ok = "SUCCESS".equalsIgnoreCase(status);
+        return new ApiResponse<>(ok ? "SUCCESS" : "FAILED", ok ? message : null, data, ok ? null : message);
     }
 
     public static <T> ApiResponse<T> response(String status, String message) {

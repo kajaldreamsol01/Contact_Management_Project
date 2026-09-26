@@ -1,12 +1,12 @@
-package com.contactmanagement.user.dto;
+package com.contactmanagement.common.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.*;
 
 @Getter
+@Setter
+@NoArgsConstructor
 @AllArgsConstructor
 public class UserAuthResponseDto {
-
     private Long id;
     private String email;
     private String password;

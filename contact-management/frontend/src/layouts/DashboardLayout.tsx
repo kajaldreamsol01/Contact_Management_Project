@@ -203,7 +203,7 @@ function DashboardLayout() {
     }
   }
   const handleLogout = () => {
-    ['accessToken', 'refreshToken', 'tokenType', 'roles', 'isLoggedIn', 'basicAuth', 'loggedInUser', 'notificationUnreadCount']
+    ['accessToken', 'tokenType', 'roles', 'isLoggedIn', 'loggedInUser', 'notificationUnreadCount']
       .forEach((key) => localStorage.removeItem(key))
     sessionStorage.clear()
     window.location.replace('/login')

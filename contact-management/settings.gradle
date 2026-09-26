@@ -1,3 +1,4 @@
 rootProject.name = 'contact-management'
+
 include ':common'
 project(':common').projectDir = file('../common')

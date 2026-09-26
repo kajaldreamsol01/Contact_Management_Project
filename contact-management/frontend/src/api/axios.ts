@@ -10,14 +10,11 @@ const clearAuth = () => {
   localStorage.removeItem('roles')
   localStorage.removeItem('isLoggedIn')
   localStorage.removeItem('loggedInUser')
-  localStorage.removeItem('basicAuth')
 }
 
 api.interceptors.request.use((config) => {
   const accessToken = localStorage.getItem('accessToken')
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`
-  }
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
   return config
 })
 
@@ -26,9 +23,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       clearAuth()
-      if (window.location.pathname !== '/login') {
-        window.location.replace('/login')
-      }
+      if (window.location.pathname !== '/login') window.location.replace('/login')
     }
     return Promise.reject(error)
   },

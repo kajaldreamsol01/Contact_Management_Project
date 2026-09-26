@@ -3,21 +3,8 @@ import { Alert, Box, Button, Card, CardContent, } from '@mui/material'
 import { useNavigate, } from 'react-router-dom'
 import InputField from '../pages/app/components/InputField'
 import api from '../api/axios'
-import { fetchContacts, getDropdowns, setDropdownCache, setSession, type AppRole, } from './app/components/contact-master/apis'
+import { fetchContacts, getDropdowns, normalizeRoles, setDropdownCache, setSession } from './app/components/contact-master/apis'
 import { useAppDispatch } from '../store/hooks'
-const normalizeRoles = (value: unknown): AppRole[] => {
-  const raw = Array.isArray(value)
-    ? value
-    : value
-      ? [value]
-      : []
-  return raw
-    .map((role) => String(role || '')
-      .trim()
-      .toUpperCase()
-      .replace(/^ROLE_/, ''))
-    .filter((role): role is AppRole => ['ADMIN', 'HOD', 'MANAGEMENT', 'USER'].includes(role))
-}
 function Login() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
@@ -44,7 +31,6 @@ function Login() {
       return
     }
     try {
-      localStorage.removeItem('basicAuth')
       localStorage.removeItem('accessToken')
       localStorage.removeItem('tokenType')
       localStorage.removeItem('roles')
@@ -164,30 +150,7 @@ function Login() {
           </Button>
         </Box>
 
-        <Box sx={{
-          mt: 2,
-          p: 1.5,
-          borderRadius: 2,
-          bgcolor: '#f0fdfa',
-          color: '#475569',
-          fontSize: 13,
-          lineHeight: 1.7,
-        }}>
-          Temporary Login
-          <br />
 
-          Email:{' '}
-          <strong>
-            admin@dreamsol.com
-          </strong>
-
-          <br />
-
-          Password:{' '}
-          <strong>
-            Admin@123
-          </strong>
-        </Box>
       </CardContent>
     </Card>
   </Box>)

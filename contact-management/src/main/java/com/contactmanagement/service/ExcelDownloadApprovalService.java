@@ -2,17 +2,17 @@ package com.contactmanagement.service;
 
 import com.contactmanagement.common.component.email.EmailComponent;
 import com.contactmanagement.common.component.excel.ExcelComponent;
+import com.contactmanagement.common.util.PaginationUtil;
 import com.contactmanagement.common.component.notification.NotificationComponent;
 import com.contactmanagement.common.dto.ContactDataDto;
 import com.contactmanagement.dto.ContactSearchRequestDto;
 import com.contactmanagement.dto.ExcelDownloadApprovalRequestDto;
 import com.contactmanagement.entity.ExcelDownloadRequest;
 import com.contactmanagement.repository.ExcelDownloadRequestRepository;
-import com.contactmanagement.response.ApiResponse;
+import com.contactmanagement.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -156,7 +156,7 @@ public class ExcelDownloadApprovalService {
     public ApiResponse<Map<String, Object>> pending(int page, int size) {
         var result = repository.findByStatusIgnoreCaseOrderByIdDesc(
                 "PENDING",
-                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50)))
+                PaginationUtil.of(page, size, 50)
         );
 
         Map<String, Object> data = new LinkedHashMap<>();

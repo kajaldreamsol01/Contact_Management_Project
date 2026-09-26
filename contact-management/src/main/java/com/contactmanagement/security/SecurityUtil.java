@@ -2,22 +2,32 @@ package com.contactmanagement.security;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.Locale;
 
 @Component("securityUtil")
 public class SecurityUtil {
+    private Authentication auth() {
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
 
     public boolean hasAuthority(String authority) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || authority == null) return false;
+        Authentication a = auth();
+        if (a == null || !a.isAuthenticated() || authority == null) return false;
+        String role = authority.trim().toUpperCase(Locale.ROOT);
+        if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
+        String expected = role;
+        return a.getAuthorities().stream().anyMatch(x -> expected.equalsIgnoreCase(x.getAuthority()));
+    }
 
-        String expected = authority.trim().toUpperCase(Locale.ROOT);
-        if (!expected.startsWith("ROLE_")) expected = "ROLE_" + expected;
-        final String role = expected;
-
-        return authentication.getAuthorities().stream()
-                .anyMatch(item -> role.equalsIgnoreCase(item.getAuthority()));
+    public String email() {
+        Authentication a = auth();
+        if (a == null || !a.isAuthenticated()) return "";
+        Object p = a.getPrincipal();
+        if (p instanceof Jwt jwt && StringUtils.hasText(jwt.getSubject())) return jwt.getSubject().trim();
+        return StringUtils.hasText(a.getName()) ? a.getName().trim() : "";
     }
 }
