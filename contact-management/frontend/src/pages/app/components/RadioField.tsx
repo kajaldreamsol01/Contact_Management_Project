@@ -1,0 +1,168 @@
+import { useState } from "react";
+import {
+  MaterialReactTable,
+  useMaterialReactTable,
+  type MRT_ColumnDef,
+  type MRT_PaginationState,
+  type MRT_SortingState,
+} from "material-react-table";
+
+type Props<T extends Record<string, any>> = {
+  columns: MRT_ColumnDef<T>[];
+  data: T[];
+  rowCount?: number;
+  loading?: boolean;
+  pagination?: MRT_PaginationState;
+  sorting?: MRT_SortingState;
+  onPaginationChange?: (value: MRT_PaginationState) => void;
+  onSortingChange?: (value: MRT_SortingState) => void;
+  paginationEnabled?: boolean;
+  manualPagination?: boolean;
+  manualSorting?: boolean;
+  maxHeight?: number;
+  minWidth?: number;
+  defaultPageSize?: number;
+};
+
+function ReactTable<T extends Record<string, any>>({
+  columns,
+  data,
+  rowCount,
+  loading = false,
+  pagination = { pageIndex: 0, pageSize: 10 },
+  sorting = [],
+  onPaginationChange,
+  onSortingChange,
+  paginationEnabled = true,
+  manualPagination = false,
+  manualSorting = false,
+  maxHeight = 430,
+  minWidth,
+  defaultPageSize = 10,
+}: Props<T>) {
+  const [internalPagination, setInternalPagination] = useState<MRT_PaginationState>({
+    pageIndex: 0,
+    pageSize: defaultPageSize,
+  });
+  const [internalSorting, setInternalSorting] = useState<MRT_SortingState>(sorting);
+
+  const controlledPagination = Boolean(onPaginationChange);
+  const controlledSorting = Boolean(onSortingChange);
+  const activePagination = controlledPagination ? pagination : internalPagination;
+  const activeSorting = controlledSorting ? sorting : internalSorting;
+
+  const table = useMaterialReactTable({
+    columns,
+    data,
+    rowCount: rowCount ?? data.length,
+    state: {
+      pagination: activePagination,
+      sorting: activeSorting,
+      isLoading: loading,
+    },
+    manualPagination,
+    manualSorting,
+    enablePagination: paginationEnabled,
+    enableSorting: true,
+    enableTopToolbar: false,
+    enableColumnFilters: false,
+    enableGlobalFilter: false,
+    enableColumnActions: false,
+    enableDensityToggle: false,
+    enableHiding: false,
+    enableFullScreenToggle: false,
+    enableStickyHeader: true,
+    autoResetPageIndex: false,
+    onPaginationChange: (updater) => {
+      const next = typeof updater === "function" ? updater(activePagination) : updater;
+      if (onPaginationChange) onPaginationChange(next);
+      else setInternalPagination(next);
+    },
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(activeSorting) : updater;
+      if (onSortingChange) onSortingChange(next);
+      else setInternalSorting(next);
+    },
+    muiPaginationProps: {
+      rowsPerPageOptions: [5, 10, 15, 20, 25, 50, 100],
+      showFirstButton: true,
+      showLastButton: true,
+    },
+    muiTablePaperProps: {
+      sx: {
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        borderRadius: 1,
+        boxShadow: "none",
+        border: "1px solid #0f766e",
+        bgcolor: "#fff",
+      },
+    },
+    muiTableContainerProps: {
+      sx: {
+        maxHeight,
+        minHeight: 0,
+        overflowX: "auto",
+        overflowY: "auto",
+        flex: "1 1 auto",
+      },
+    },
+    muiTableProps: {
+      sx: {
+        minWidth: minWidth ?? "100%",
+      },
+    },
+    muiTableHeadCellProps: {
+      sx: {
+        bgcolor: "#0f766e !important",
+        color: "#fff !important",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+        "& svg": { color: "#fff !important" },
+      },
+    },
+    muiTableBodyCellProps: {
+      sx: {
+        fontSize: 13,
+        whiteSpace: "nowrap",
+      },
+    },
+    muiTableBodyRowProps: {
+      sx: {
+        "&:hover td": { bgcolor: "#f0fdfa" },
+      },
+    },
+    muiBottomToolbarProps: {
+      sx: {
+        display: paginationEnabled ? "flex" : "none",
+        flex: "0 0 auto",
+        position: "relative",
+        zIndex: 3,
+        minHeight: 50,
+        borderTop: "1px solid #0f766e",
+        bgcolor: "#0f766e",
+        color: "#fff",
+        "& .MuiTablePagination-root": {
+          width: "100%",
+          color: "#fff",
+        },
+        "& .MuiTablePagination-selectLabel": { color: "#fff" },
+        "& .MuiTablePagination-displayedRows": { color: "#fff" },
+        "& .MuiSelect-select": { color: "#fff" },
+        "& .MuiSvgIcon-root": { color: "#fff !important" },
+        "& .MuiIconButton-root": {
+          color: "#fff !important",
+          border: "1px solid rgba(255,255,255,.65)",
+          borderRadius: 1,
+          mx: 0.25,
+          "&.Mui-disabled": { color: "rgba(255,255,255,.45) !important", borderColor: "rgba(255,255,255,.25)" },
+        },
+      },
+    },
+  });
+
+  return <MaterialReactTable table={table} />;
+}
+
+export default ReactTable;

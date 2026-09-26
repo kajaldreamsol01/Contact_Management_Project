@@ -1,0 +1,28 @@
+CONTACT MANAGEMENT FRONTEND - MANAGER STYLE REPLACEMENT
+
+Extract this ZIP inside:
+C:\Users\Dell\Documents\kajal\contact-management
+
+Choose Replace/Overwrite when Windows asks.
+
+ZIP structure:
+frontend\src\...
+
+This keeps the existing frontend paths and overwrites the current source files automatically.
+
+After extraction:
+cd C:\Users\Dell\Documents\kajal\contact-management\frontend
+npm run build
+
+Preserved working flows:
+- Add / Update / Bulk Add
+- Filter / pagination / sorting
+- Excel validate/import/export
+- Contact history
+- Photo / documents
+- Role based UI/access
+- 7-day direct download
+- More-than-7-day permission + email attachment
+- Notifications / approval / reject
+- Dashboard analytics
+- Logout direct redirect
