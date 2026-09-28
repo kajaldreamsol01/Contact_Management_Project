@@ -1474,14 +1474,18 @@ export const markNotificationRead = async (
 
 export const deleteNotification = async (
   id: number,
-) => {
+): Promise<number> => {
   const response = await axios.delete(
     `/contact/notifications/${id}`,
   )
 
-  return ensureSuccess<any>(
+  const result = ensureSuccess<any>(
     response.data,
     'Unable to delete notification',
+  )
+
+  return Number(
+    result.data?.unreadCount ?? 0,
   )
 }
 

@@ -102,6 +102,15 @@ const formatDateTime = (value?: string | null) => {
   return `${dd}/${mm}/${yy} ${hh}:${min}:${sec}`;
 };
 
+const dashboardCellValue = (value: unknown) => {
+  if (Array.isArray(value)) {
+    const values = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+    return values.length ? values.join(", ") : "N/A";
+  }
+  const text = String(value ?? "").trim();
+  return text || "N/A";
+};
+
 const loadScript = (src: string) =>
   new Promise<void>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
@@ -177,7 +186,7 @@ const summaryColumns = (
     header: item.header,
     size: item.size,
     enableSorting: item.sortable ?? false,
-    ...(cells[item.key] ? { Cell: cells[item.key] } : {}),
+    Cell: cells[item.key] ?? (({ cell }) => dashboardCellValue(cell.getValue())),
   }));
 
 function SummaryTable({
@@ -400,6 +409,7 @@ function DetailTableDialog({
           header: item.header,
           size: item.size,
           enableSorting: item.sortable ?? false,
+          Cell: ({ cell }) => dashboardCellValue(cell.getValue()),
         };
 
         if (item.key === "contactCode") {

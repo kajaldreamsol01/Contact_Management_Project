@@ -37,25 +37,23 @@ import java.util.Map;
 @RequestMapping("contact")
 @RequiredArgsConstructor
 public class ContactController {
-    private static final String READ = "@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod') or @securityUtil.hasAuthority('management') or @securityUtil.hasAuthority('user')";
-    private static final String WRITE = "@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('management')";
     private final ContactService service;
     private final ContactFileProcessor fileProcessor;
     private final ReactTableHeaderComponent tableHeaderComponent;
 
-    @PreAuthorize(WRITE)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('management')")
     @PostMapping("save")
     public ApiResponse<Map<String, Object>> save(@RequestBody List<ContactRequestDto> requests) {
         return service.save(requests, "FORM");
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping({"fetch", "filter"})
     public ApiResponse<Page<ContactListResponseDto>> fetch(@ModelAttribute ContactSearchRequestDto request) {
         return service.fetch(request);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("{id}")
     public ApiResponse<ContactResponseDto> get(@PathVariable Long id) {
         return service.get(id);
@@ -67,49 +65,49 @@ public class ContactController {
         return service.deactivate(id);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("history/{contactId}")
     public ApiResponse<List<ContactHistoryResponseDto>> history(@PathVariable Long contactId) {
         return service.history(contactId);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("history-config")
     public ApiResponse<List<TableColumnConfig>> historyConfig() {
         return ApiResponse.response("SUCCESS", "Contact history table config fetched successfully", tableHeaderComponent.get("CONTACT_HISTORY"));
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("status-count")
     public ApiResponse<CommonStatusCountDto> statusCount(@ModelAttribute ContactSearchRequestDto request) {
         return service.statusCount(request);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("analytics")
     public ApiResponse<ContactAnalyticsResponseDto> analytics(@ModelAttribute ContactSearchRequestDto request) {
         return service.analytics(request);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("name-suggestions")
     public ApiResponse<List<String>> suggestions(@RequestParam String query) {
         return service.nameSuggestions(query);
     }
 
-    @PreAuthorize(WRITE)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('management')")
     @PostMapping(value = "file/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<List<ContactFileResponseDto>> upload(@RequestParam List<MultipartFile> files, @RequestParam List<String> types) {
         return fileProcessor.upload(files, types);
     }
 
-    @PreAuthorize(READ)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")
     @GetMapping("file/{uuid}")
     public ResponseEntity<Resource> file(@PathVariable String uuid) {
         return fileProcessor.download(uuid);
     }
 
-    @PreAuthorize(WRITE)
+    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('management')")
     @DeleteMapping("file/{uuid}")
     public ApiResponse<Void> deleteFile(@PathVariable String uuid) {
         return fileProcessor.delete(uuid);

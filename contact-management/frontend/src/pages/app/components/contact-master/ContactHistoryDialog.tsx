@@ -7,14 +7,15 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import PhotoOutlinedIcon from "@mui/icons-material/PhotoOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import type { MRT_ColumnDef } from "material-react-table";
 import ReactTable from "../ReactTable";
 import {
-  downloadContactFile,
   type ContactHistoryItem,
   type ContactTableColumnConfig,
 } from "./apis";
@@ -138,21 +139,24 @@ export default function ContactHistoryDialog({
         if (config.key === "photo" || config.key === "photoUuid") {
           return {
             ...base,
+            size: 72,
             Cell: ({ row }) => {
-              const fileValue = String(
+              const fileName = String(
                 historyValue(row.original, config.key) ??
                 historyValue(row.original, "photoUuid") ??
                 "",
               ).trim();
-              if (!fileValue) return "N/A";
+              if (!fileName) return "N/A";
               return (
-                <IconButton
-                  size="small"
-                  title="Download photo"
-                  onClick={() => void downloadContactFile(fileValue)}
-                >
-                  <DownloadOutlinedIcon fontSize="small" />
-                </IconButton>
+                <Tooltip title={fileName} arrow enterTouchDelay={0} leaveTouchDelay={2500}>
+                  <IconButton
+                    size="small"
+                    aria-label={fileName}
+                    sx={{ color: "#0f766e", p: 0.35 }}
+                  >
+                    <PhotoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               );
             },
           };
@@ -161,6 +165,7 @@ export default function ContactHistoryDialog({
         if (config.key === "documents" || config.key === "documentUuids") {
           return {
             ...base,
+            size: 110,
             Cell: ({ row }) => {
               const fileValues =
                 historyValue(row.original, config.key) ??
@@ -170,8 +175,32 @@ export default function ContactHistoryDialog({
                 : [];
               if (!files.length) return "N/A";
               return (
-                <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2 }}>
-                  {files.join(", ")}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.25,
+                    flexWrap: "wrap",
+                    maxWidth: 96,
+                  }}
+                >
+                  {files.map((fileName, index) => (
+                    <Tooltip
+                      key={`${fileName}-${index}`}
+                      title={fileName}
+                      arrow
+                      enterTouchDelay={0}
+                      leaveTouchDelay={2500}
+                    >
+                      <IconButton
+                        size="small"
+                        aria-label={fileName}
+                        sx={{ color: "#0f766e", p: 0.35 }}
+                      >
+                        <DescriptionOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ))}
                 </Box>
               );
             },
@@ -180,11 +209,37 @@ export default function ContactHistoryDialog({
 
         return {
           ...base,
-          Cell: ({ row }) => (
-            <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25 }}>
-              {textValue(historyValue(row.original, config.key))}
-            </Box>
-          ),
+          Cell: ({ row }) => {
+            const rawValue = historyValue(row.original, config.key);
+            if (Array.isArray(rawValue)) {
+              const displayValue = textValue(rawValue);
+              return (
+                <Tooltip
+                  title={displayValue === "N/A" ? "" : displayValue}
+                  arrow
+                  enterTouchDelay={0}
+                  leaveTouchDelay={2500}
+                >
+                  <Box
+                    sx={{
+                      maxWidth: Math.max(120, config.size ?? 160),
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {displayValue}
+                  </Box>
+                </Tooltip>
+              );
+            }
+            return (
+              <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25 }}>
+                {textValue(rawValue)}
+              </Box>
+            );
+          },
         };
       }),
     [tableConfig],

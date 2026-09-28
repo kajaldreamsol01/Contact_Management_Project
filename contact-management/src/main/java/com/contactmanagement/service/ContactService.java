@@ -1,10 +1,12 @@
 package com.contactmanagement.service;
 
+import com.contactmanagement.common.component.notification.NotificationComponent;
 import com.contactmanagement.common.component.redis.RedisComponent;
 import com.contactmanagement.common.constants.CacheConstants;
 import com.contactmanagement.common.constants.CommonStatusCount;
 import com.contactmanagement.common.dto.CommonStatusCountDto;
 import com.contactmanagement.common.dto.ContactDataDto;
+import com.contactmanagement.common.dto.OperationSummaryDto;
 import com.contactmanagement.common.response.ApiResponse;
 import com.contactmanagement.common.util.PaginationUtil;
 import com.contactmanagement.dto.ContactAnalyticsResponseDto;
@@ -51,6 +53,7 @@ public class ContactService {
     private final ContactRepository repository;
     private final ContactHistoryRepository historyRepository;
     private final ContactHistoryProcessor historyProcessor;
+    private final NotificationComponent notificationComponent;
     private final ContactFileProcessor fileProcessor;
     private final RedisComponent cache;
     private final ObjectMapper mapper;
@@ -73,8 +76,9 @@ public class ContactService {
             List<Contact> finalSavedContacts = savedContacts;
             historyRepository.saveAll(IntStream.range(0, savedContacts.size()).mapToObj(index -> historyProcessor.create(finalSavedContacts.get(index), saveRows.get(index).before(), saveRows.get(index).create(), userId, email, source)).toList());
             invalidate(savedContacts);
+            if ("FORM".equalsIgnoreCase(source)) createFormNotification(saveRows);
             Map<Boolean, List<Map<String, Object>>> result = IntStream.range(0, savedContacts.size()).boxed().collect(Collectors.partitioningBy(index -> saveRows.get(index).create(), Collectors.mapping(index -> ContactResultUtil.item(index + 1, saveRows.get(index).request(), finalSavedContacts.get(index).getContactCode(), saveRows.get(index).create()), Collectors.toList())));
-            return ApiResponse.response("SUCCESS", savedContacts.size() + " contact(s) saved", ContactResultUtil.result(requests.size(), result.get(true), result.get(false), List.of(), List.of()));
+            return ApiResponse.response("SUCCESS", savedContacts.size() + " contact(s)saved", ContactResultUtil.result(requests.size(), result.get(true), result.get(false), List.of(), List.of()));
         } catch (Exception exception) {
             return ApiResponse.response("FAILED", Objects.toString(exception.getMessage(), "Unable to save contact"));
         }
@@ -145,12 +149,34 @@ public class ContactService {
         return repository.findAll(ContactSpecifications.of(request)).stream().map(contact -> mapper.convertValue(contact, ContactDataDto.class)).toList();
     }
 
+    public Long authenticatedUserId() {
+        return auditorAware.getCurrentAuditor().orElse(null);
+    }
+
+    public String authenticatedUserEmail() {
+        return authenticatedEmail();
+    }
+
     private SaveRow prepare(ContactRequestDto request) {
         boolean create = Objects.isNull(request.getId());
         Contact contact = create ? new Contact() : repository.findById(request.getId()).orElseThrow(() -> new IllegalArgumentException("Contact not found"));
         Map<String, String> previousValues = create ? Map.of() : historyProcessor.values(contact);
         BeanUtils.copyProperties(request, contact, "id", "contactCode", "createdBy", "createdAt", "updatedBy", "updatedAt");
         return new SaveRow(request, contact, create, previousValues);
+    }
+
+    private void createFormNotification(List<SaveRow> saveRows) {
+        try {
+            int createdCount = Math.toIntExact(saveRows.stream().filter(SaveRow::create).count());
+            int updatedCount = saveRows.size() - createdCount;
+            if (createdCount > 0) {
+                notificationComponent.createForm(new OperationSummaryDto(false, createdCount, createdCount, 0, 0));
+            }
+            if (updatedCount > 0) {
+                notificationComponent.createForm(new OperationSummaryDto(true, updatedCount, updatedCount, 0, 0));
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void invalidate(List<Contact> contacts) {

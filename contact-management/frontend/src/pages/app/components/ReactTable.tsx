@@ -145,7 +145,7 @@ function ReactTable<T extends Record<string, any>>({
         bgcolor: "#0f766e !important",
         color: "#fff !important",
         fontWeight: 700,
-        fontSize: 12,
+        fontSize: 15,
         py: 0.55,
         px: 0.45,
         whiteSpace: "normal",
@@ -163,7 +163,7 @@ function ReactTable<T extends Record<string, any>>({
     },
     muiTableBodyCellProps: {
       sx: {
-        fontSize: 12,
+        fontSize: 13.5,
         py: 0.4,
         px: 0.45,
         verticalAlign: "top",

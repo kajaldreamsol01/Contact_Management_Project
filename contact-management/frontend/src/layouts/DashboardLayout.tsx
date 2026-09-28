@@ -78,6 +78,7 @@ function DashboardLayout() {
           : item))
         setUnreadCount(nextUnreadCount)
         localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
+        await loadNotifications(false, notificationPage, notificationSize)
       }
       catch {
       }
@@ -141,21 +142,17 @@ function DashboardLayout() {
     setNotificationToast((current) => current?.id === notification.id ? null : current)
     setUnreadCount(nextUnreadCount)
     localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
+    await loadNotifications(false, notificationPage, notificationSize)
   }
   const handleDeleteNotification = async (notification: AppNotification) => {
-    await deleteNotification(notification.id)
+    const nextUnreadCount = await deleteNotification(notification.id)
     setNotifications((current) => current.filter((item) => item.id !== notification.id))
     setNotificationTotalElements((current) => Math.max(0, current - 1))
-    if (!isNotificationRead(notification)) {
-      setUnreadCount((current) => {
-        const next = Math.max(0, current - 1)
-        localStorage.setItem('notificationUnreadCount', String(next))
-        return next
-      })
-    }
+    setUnreadCount(nextUnreadCount)
+    localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
     setSelectedNotification(null)
     setNotificationToast((current) => current?.id === notification.id ? null : current)
-    // DELETE updates local UI. No notification GET here.
+    await loadNotifications(false, notificationPage, notificationSize)
   }
   const handleApprovalDecision = async (decision: 'approve' | 'reject') => {
     const requestId = selectedNotification?.actionRequestId
@@ -218,7 +215,6 @@ function DashboardLayout() {
         objectFit: 'contain',
       }} />
     </Box>
-
     <List sx={{
       p: 0,
     }}>
@@ -270,12 +266,10 @@ function DashboardLayout() {
         }}>
           {icon}
         </ListItemIcon>
-
         {(!desktop ||
           open) && (<ListItemText primary={name} />)}
       </ListItemButton>))}
     </List>
-
     <ListItemButton onClick={handleLogout} title={desktop && !open
       ? 'Logout'
       : undefined} sx={{
@@ -313,7 +307,6 @@ function DashboardLayout() {
       }}>
         <LogoutIcon />
       </ListItemIcon>
-
       {(!desktop ||
         open) && (<ListItemText primary='Logout' />)}
     </ListItemButton>
@@ -351,7 +344,6 @@ function DashboardLayout() {
         }}>
       {sidebar}
     </Drawer>
-
     <Box sx={{
       flex: 1,
       minWidth: 0,
@@ -375,14 +367,12 @@ function DashboardLayout() {
           }}>
             <MenuIcon />
           </IconButton>
-
           <Typography variant='h6' sx={{
             flex: 1,
             fontWeight: 600,
           }}>
             Contact Management System
           </Typography>
-
           <IconButton type='button' title='Notifications' onClick={(event) => {
             const anchor = event.currentTarget
             anchor.blur()
@@ -392,7 +382,6 @@ function DashboardLayout() {
               <NotificationsNoneOutlinedIcon />
             </Badge>
           </IconButton>
-
           <Menu anchorEl={notificationAnchor} open={Boolean(notificationAnchor)} onClose={() => { }} slotProps={{
             paper: {
               sx: {
@@ -433,7 +422,6 @@ function DashboardLayout() {
                 }}>
                   Notifications
                 </Typography>
-
                 <IconButton size='small' title='Close' onClick={(event) => {
                   event.currentTarget.blur()
                   setNotificationAnchor(null)
@@ -449,9 +437,7 @@ function DashboardLayout() {
                   <CloseIcon fontSize='small' />
                 </IconButton>
               </Box>
-
               <Divider sx={{ borderColor: '#0f766e', flexShrink: 0 }} />
-
               <Box sx={{
                 flex: '1 1 0',
                 minHeight: 0,
@@ -508,7 +494,6 @@ function DashboardLayout() {
                   </Box>
                 </MenuItem>))}
               </Box>
-
               {notificationTotalElements > 0 && (<Box sx={{
                 flexShrink: 0,
                 position: 'sticky',
@@ -565,7 +550,6 @@ function DashboardLayout() {
               </Box>)}
             </Box>
           </Menu>
-
           <Avatar sx={{
             width: 38,
             height: 38,
@@ -575,7 +559,6 @@ function DashboardLayout() {
           }}>
             <AdminPanelSettingsOutlinedIcon fontSize='small' />
           </Avatar>
-
           <Typography variant='body2' sx={{
             ml: 1,
             display: {
@@ -587,7 +570,6 @@ function DashboardLayout() {
           }}>
             {displayRole}
           </Typography>
-
           <IconButton type='button' title='Logout' onClick={handleLogout} sx={{
             color: 'white',
             ml: 1,
@@ -599,7 +581,6 @@ function DashboardLayout() {
           </IconButton>
         </Toolbar>
       </AppBar>
-
       <Box component='main' sx={{
         flex: 1,
         minHeight: 0,
@@ -612,7 +593,6 @@ function DashboardLayout() {
       }}>
         <Outlet />
       </Box>
-
       <Box component='footer' sx={{
         flexShrink: 0,
         py: 1.2,
@@ -626,7 +606,6 @@ function DashboardLayout() {
           © 2026 DreamSol
         </Typography>
       </Box>
-
       <Dialog open={Boolean(selectedNotification)} onClose={() => {
       }} fullWidth maxWidth='sm'>
         <DialogTitle sx={{ bgcolor: '#0f9187', color: 'white', fontWeight: 700, display: 'flex', alignItems: 'center' }}>
@@ -651,10 +630,8 @@ function DashboardLayout() {
             <Typography sx={{ textAlign: 'center', color: '#0f766e', fontWeight: 800, fontSize: 19, mb: 1 }}>
               Excel Download Approval
             </Typography>
-
             {approvalMessage && <Alert severity='success' sx={{ mb: 2 }}>{approvalMessage}</Alert>}
             {approvalError && <Alert severity='error' sx={{ mb: 2 }}>{approvalError}</Alert>}
-
             <Box sx={{ border: '1px solid #99d5cf', borderRadius: 1, overflow: 'hidden', mb: 2 }}>
               <Box sx={{ bgcolor: '#0f766e', color: '#fff', px: 1.5, py: 1, fontWeight: 700 }}>
                 Approval Request
@@ -672,7 +649,6 @@ function DashboardLayout() {
                 {selectedNotification.message}
               </Typography>
             </Box>
-
             <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 1, fontSize: 14 }}>
               <b>Status:</b>
               <span>{selectedNotification.actionStatus || 'PENDING'}</span>
@@ -684,18 +660,15 @@ function DashboardLayout() {
             <Typography sx={{ textAlign: 'center', color: '#244c7a', fontWeight: 700, mb: 2 }}>
               {selectedNotification?.title}
             </Typography>
-
             <Box sx={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: 0.5, mb: 2, fontSize: 14 }}>
               <b>From:</b><span>DreamSol System</span>
               <b>To:</b><span>{selectedNotification?.audienceEmail || selectedNotification?.audienceRole || 'User'}</span>
               <b>Subject:</b><span>{selectedNotification?.title}</span>
             </Box>
-
             <Typography sx={{ mb: 1 }}>Dear User,</Typography>
             <Typography sx={{ color: 'text.secondary', mb: 2 }}>
               {selectedNotification?.message}
             </Typography>
-
             {(selectedNotification?.totalCount != null || selectedNotification?.savedCount != null || selectedNotification?.updatedCount != null) && (<Box sx={{ border: '1px solid #aab4c3', mb: 2 }}>
               <Box sx={{ bgcolor: '#0f766e', color: 'white', px: 1.5, py: 0.8, fontWeight: 700 }}>Contact Summary</Box>
               {[
@@ -708,7 +681,6 @@ function DashboardLayout() {
                 </Box>))}
               </Box>))}
             </Box>)}
-
             {selectedNotification?.attachmentName && (<Box sx={{ border: '1px solid #aab4c3', borderRadius: 1, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {selectedNotification.attachmentName}
@@ -717,7 +689,6 @@ function DashboardLayout() {
                 Download
               </Button>
             </Box>)}
-
             {selectedNotification?.createdAt && (<Typography sx={{ mt: 2, fontSize: 12, color: 'text.secondary' }}>
               {new Date(selectedNotification.createdAt).toLocaleString()}
             </Typography>)}
@@ -745,7 +716,6 @@ function DashboardLayout() {
           </Button>)}
         </DialogActions>
       </Dialog>
-
       <Snackbar open={Boolean(notificationToast)} autoHideDuration={null} onClose={() => {
       }} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <Alert severity='success' onClick={() => {
