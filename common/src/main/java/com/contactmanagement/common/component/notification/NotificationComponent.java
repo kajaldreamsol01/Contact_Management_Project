@@ -34,10 +34,11 @@ public class NotificationComponent {
     @Value("${common.admin-email:}")
     private String adminEmail;
 
-    public ApiResponse<Void> createForm(OperationSummaryDto s) {
-        if (s == null || s.getSuccessCount() <= 0) return ApiResponse.response("SUCCESS", "No notification required");
-        boolean update = s.isUpdate();
-        summary(update ? "Updated by Form" : "Saved by Form", s.getTotalCount(), update ? 0 : s.getSuccessCount(), update ? s.getSuccessCount() : 0, s.getDuplicateCount(), s.getInvalidCount(), null);
+    public ApiResponse<Void> createForm(OperationSummaryDto operationSummary) {
+        if (Objects.isNull(operationSummary) || operationSummary.getSuccessCount() <= 0)
+            return ApiResponse.response("SUCCESS", "No notification required");
+        boolean update = operationSummary.isUpdate();
+        summary(update ? "Updated by Form" : "Saved by Form", operationSummary.getTotalCount(), update ? 0 : operationSummary.getSuccessCount(), update ? operationSummary.getSuccessCount() : 0, operationSummary.getDuplicateCount(), operationSummary.getInvalidCount(), null);
         return ApiResponse.response("SUCCESS", "Notification created successfully");
     }
 
@@ -46,32 +47,32 @@ public class NotificationComponent {
     }
 
     public void createDownloadApproval(Long requestId, String requesterEmail, String message) {
-        Notification n = new Notification();
-        n.setTitle("Excel Download Approval");
-        n.setMessage(message);
-        n.setType("APPROVAL");
-        n.setAudienceRole("ADMIN");
-        n.setActionType(APPROVAL);
-        n.setActionRequestId(requestId);
-        n.setActionStatus("PENDING");
-        repository.save(n);
+        Notification notification = new Notification();
+        notification.setTitle("Excel Download Approval");
+        notification.setMessage(message);
+        notification.setType("APPROVAL");
+        notification.setAudienceRole("ADMIN");
+        notification.setActionType(APPROVAL);
+        notification.setActionRequestId(requestId);
+        notification.setActionStatus("PENDING");
+        repository.save(notification);
     }
 
     public void createDownloadDecision(Long requestId, String requesterEmail, String status, String message, String attachmentName, byte[] attachment) {
         String user = text(requesterEmail);
-        Notification n = repository.findTopByActionTypeAndActionRequestIdAndAudienceEmailIgnoreCaseAndDeletedFalseOrderByIdDesc(RESULT, requestId, user).orElseGet(Notification::new);
+        Notification notification = repository.findTopByActionTypeAndActionRequestIdAndAudienceEmailIgnoreCaseAndDeletedFalseOrderByIdDesc(RESULT, requestId, user).orElseGet(Notification::new);
         boolean processing = "PROCESSING".equalsIgnoreCase(status), approved = "APPROVED".equalsIgnoreCase(status);
-        n.setTitle(processing ? "Excel Download Processing" : approved ? "Excel Download Approved" : "Excel Download Rejected");
-        n.setMessage(message);
-        n.setType(processing ? "INFO" : approved ? "SUCCESS" : "ERROR");
-        n.setAudienceEmail(user);
-        n.setActionType(RESULT);
-        n.setActionRequestId(requestId);
-        n.setActionStatus(status);
-        n.setAttachmentName(attachmentName);
-        n.setAttachmentData(attachment);
-        if (!processing) n.setRead(false);
-        repository.save(n);
+        notification.setTitle(processing ? "Excel Download Processing" : approved ? "Excel Download Approved" : "Excel Download Rejected");
+        notification.setMessage(message);
+        notification.setType(processing ? "INFO" : approved ? "SUCCESS" : "ERROR");
+        notification.setAudienceEmail(user);
+        notification.setActionType(RESULT);
+        notification.setActionRequestId(requestId);
+        notification.setActionStatus(status);
+        notification.setAttachmentName(attachmentName);
+        notification.setAttachmentData(attachment);
+        if (!processing) notification.setRead(false);
+        repository.save(notification);
     }
 
     @Transactional(readOnly = true)
@@ -100,7 +101,7 @@ public class NotificationComponent {
 
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> downloadAttachment(Long id, boolean isAdmin, String emailAddress) {
-        return visible(id, isAdmin, emailAddress).filter(n -> n.getAttachmentData() != null && StringUtils.hasText(n.getAttachmentName())).map(n -> ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + n.getAttachmentName().replace("\"", "") + "\"").contentType(XLSX).body(n.getAttachmentData())).orElseGet(() -> ResponseEntity.notFound().build());
+        return visible(id, isAdmin, emailAddress).filter(notification -> Objects.nonNull(notification.getAttachmentData()) && StringUtils.hasText(notification.getAttachmentName())).map(notification -> ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + notification.getAttachmentName().replace("\"", "") + "\"").contentType(XLSX).body(notification.getAttachmentData())).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     public ApiResponse<Void> sendEmail(String to, String subject, String message, MultipartFile attachment) {
@@ -114,33 +115,33 @@ public class NotificationComponent {
     private ApiResponse<Map<String, Object>> change(Long id, boolean isAdmin, String emailAddress, boolean delete, String message) {
         Optional<Notification> found = visible(id, isAdmin, emailAddress);
         if (found.isEmpty()) return ApiResponse.response("FAILED", "Notification not found");
-        Notification n = found.get();
-        if (delete) n.setDeleted(true);
-        else n.setRead(true);
-        repository.save(n);
+        Notification notification = found.get();
+        if (delete) notification.setDeleted(true);
+        else notification.setRead(true);
+        repository.saveAndFlush(notification);
         return unread(message, isAdmin, emailAddress);
     }
 
     private Optional<Notification> visible(Long id, boolean isAdmin, String emailAddress) {
-        return repository.findByIdAndDeletedFalse(id).filter(n -> visibleTo(n, isAdmin, emailAddress));
+        return repository.findByIdAndDeletedFalse(id).filter(notification -> visibleTo(notification, isAdmin, emailAddress));
     }
 
     private void summary(String title, int total, int saved, int updated, int duplicate, int invalid, byte[] attachment) {
         String counts = "New Saved: " + saved + " | Updated: " + updated + " | Total: " + total + " | Duplicate: " + duplicate + " | Invalid: " + invalid;
-        repository.save(Notification.of(title, counts, "SUCCESS", attachment == null ? null : FILE, attachment, total, saved, updated, duplicate, invalid));
+        repository.save(Notification.of(title, counts, "SUCCESS", Objects.isNull(attachment) ? null : FILE, attachment, total, saved, updated, duplicate, invalid));
         String to = StringUtils.hasText(adminEmail) ? adminEmail.trim() : email.senderEmail();
         if (!email.isConfigured() || !StringUtils.hasText(to)) return;
         String body = "Dear Admin,\n\nYour contact operation has been completed successfully.\n\nContact Summary\nTotal Records: " + total + "\nNew Saved Records: " + saved + "\nUpdated Records: " + updated + "\nDuplicate Records: " + duplicate + "\nInvalid Records: " + invalid + "\n\nThanks & Regards,\nTeam DreamSol\nContact Management System";
-        email.sendAsync(to, title, body, attachment != null && attachment.length > 0 ? new ByteArrayResource(attachment) : null, FILE);
+        email.sendAsync(to, title, body, Objects.nonNull(attachment) && attachment.length > 0 ? new ByteArrayResource(attachment) : null, FILE);
     }
 
     private ApiResponse<Map<String, Object>> unread(String message, boolean isAdmin, String emailAddress) {
         return ApiResponse.response("SUCCESS", message, Map.of("unreadCount", repository.countVisibleUnread(isAdmin, text(emailAddress))));
     }
 
-    private boolean visibleTo(Notification n, boolean isAdmin, String emailAddress) {
+    private boolean visibleTo(Notification notification, boolean isAdmin, String emailAddress) {
         String user = text(emailAddress);
-        return !n.isDeleted() && ((!StringUtils.hasText(n.getAudienceRole()) && !StringUtils.hasText(n.getAudienceEmail())) || (isAdmin && "ADMIN".equalsIgnoreCase(n.getAudienceRole())) || (StringUtils.hasText(n.getAudienceEmail()) && StringUtils.hasText(user) && n.getAudienceEmail().trim().equalsIgnoreCase(user)));
+        return !notification.isDeleted() && ((!StringUtils.hasText(notification.getAudienceRole()) && !StringUtils.hasText(notification.getAudienceEmail())) || (isAdmin && "ADMIN".equalsIgnoreCase(notification.getAudienceRole())) || (StringUtils.hasText(notification.getAudienceEmail()) && StringUtils.hasText(user) && notification.getAudienceEmail().trim().equalsIgnoreCase(user)));
     }
 
     private String text(String value) {

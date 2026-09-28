@@ -4,22 +4,14 @@ import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ContactActivityBoard from './pages/app/components/contact-master/ContactActivityBoard'
-const roles = () => {
-  try {
-    const value = JSON.parse(localStorage.getItem('roles') || '[]')
-    return (Array.isArray(value) ? value : [value]).map((role) => String(role || '').toUpperCase().replace(/^ROLE_/, ''))
-  }
-  catch {
-    return []
-  }
-}
+import { readAccessProfile } from './pages/app/components/contact-master/apis'
 function ProtectedLayout() {
   return localStorage.getItem('isLoggedIn') === 'true'
     ? <DashboardLayout />
     : <Navigate to='/login' replace />
 }
 function DashboardRoute() {
-  return roles().includes('USER') ? <Navigate to='/contacts' replace /> : <Dashboard />
+  return readAccessProfile().dashboardAccess ? <Dashboard /> : <Navigate to='/contacts' replace />
 }
 function App() {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'

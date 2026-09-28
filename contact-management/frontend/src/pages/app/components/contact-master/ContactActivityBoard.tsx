@@ -13,7 +13,7 @@ import ContactActivityFilter, { getAppliedFilterLabels, getDefaultContactFilters
 import AddContactForm from "./AddContactForm";
 import UpdateContactForm from "./UpdateContactForm";
 import ContactHistoryDialog from "./ContactHistoryDialog";
-import { deactivateContact, deleteContactFile, downloadContactFile, downloadContactFormat, downloadContactsExcel, requestContactsExcelDownload, getDropdowns, getStatusCount, getUserNames, importContactsExcel, validateContactsExcel, saveContact, filterContacts, setDraftFilters as setDraftFiltersAction, setAppliedFilters as setAppliedFiltersAction, setDropdownCache, type ContactDetail, type ContactDropdownData, type ContactFilters, type ContactListItem, type ContactRequestDto, type ExcelPreviewRow, } from "./apis";
+import { deactivateContact, deleteContactFile, downloadContactFile, downloadContactFormat, downloadContactsExcel, requestContactsExcelDownload, getDropdowns, getStatusCount, getUserNames, getContactHistory, getContactHistoryTableConfig, importContactsExcel, validateContactsExcel, saveContact, filterContacts, setDraftFilters as setDraftFiltersAction, setAppliedFilters as setAppliedFiltersAction, setDropdownCache, type ContactDetail, type ContactDropdownData, type ContactFilters, type ContactHistoryItem, type ContactListItem, type ContactRequestDto, type ContactTableColumnConfig, type ExcelPreviewRow, } from "./apis";
 import { useAppDispatch, useAppSelector } from "../../../../store/hooks";
 import { getReactTableConfig, type ReactTableColumnConfig } from "./tableConfig";
 const EMPTY_DROPDOWNS: ContactDropdownData = {
@@ -182,6 +182,10 @@ function ContactActivityBoard() {
         id: number;
         contactCode: string;
     } | null>(null);
+    const [historyItems, setHistoryItems] = useState<ContactHistoryItem[]>([]);
+    const [historyTableConfig, setHistoryTableConfig] = useState<ContactTableColumnConfig[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState("");
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState<"success" | "error" | "warning">("success");
     const lastContactRequestRef = useRef("");
@@ -588,6 +592,25 @@ function ContactActivityBoard() {
                 : "Unable to download attachment", "error");
         }
     }, [showMessage]);
+    const openHistory = useCallback(async (contact: { id: number; contactCode: string }) => {
+        setHistoryContact(contact);
+        setHistoryLoading(true);
+        setHistoryError("");
+        try {
+            const [history, config] = await Promise.all([
+                getContactHistory(contact.id),
+                historyTableConfig.length ? Promise.resolve(historyTableConfig) : getContactHistoryTableConfig(),
+            ]);
+            setHistoryItems(history);
+            if (!historyTableConfig.length) setHistoryTableConfig(config);
+        } catch (exception) {
+            setHistoryItems([]);
+            setHistoryError(exception instanceof Error ? exception.message : "Unable to load contact history");
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [historyTableConfig]);
+
     const contactColumns = useMemo<MRT_ColumnDef<ContactListItem>[]>(() => {
         const valueForKey = (row: ContactListItem, key: string): unknown => {
             if (key === "photo")
@@ -653,7 +676,7 @@ function ContactActivityBoard() {
                             size="small"
                             variant="text"
                             onClick={() =>
-                                setHistoryContact({
+                                void openHistory({
                                     id: row.original.id,
                                     contactCode: row.original.contactCode,
                                 })
@@ -1397,7 +1420,7 @@ function ContactActivityBoard() {
           </Button>
         </DialogActions>
       </Dialog>
-      <ContactHistoryDialog open={Boolean(historyContact)} contactId={historyContact?.id ?? null} contactCode={historyContact?.contactCode ?? ""} onClose={() => setHistoryContact(null)}/>
+      <ContactHistoryDialog open={Boolean(historyContact)} contactCode={historyContact?.contactCode ?? ""} items={historyItems} tableConfig={historyTableConfig} loading={historyLoading} error={historyError} onClose={() => setHistoryContact(null)}/>
       <Snackbar open={Boolean(message)} autoHideDuration={2500} onClose={() => setMessage("")}>
         <Alert severity={messageType} onClose={() => setMessage("")}>
           {message}

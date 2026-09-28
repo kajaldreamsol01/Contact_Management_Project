@@ -16,6 +16,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -55,6 +56,6 @@ public class ContactHistory {
     private LocalDateTime createdAt;
 
     public Long getContactId() {
-        return contact == null ? null : contact.getId();
+        return Objects.isNull(contact) ? null : contact.getId();
     }
 }

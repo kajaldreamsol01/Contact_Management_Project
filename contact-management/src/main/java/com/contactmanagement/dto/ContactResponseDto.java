@@ -7,7 +7,9 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -53,14 +55,43 @@ public class ContactResponseDto implements java.io.Serializable {
     private LocalDateTime updatedAt;
 
     public ContactResponseDto(Contact contact, Map<String, ContactFileResponseDto> files) {
-        id = contact.getId(); contactCode = contact.getContactCode(); contactType = contact.getContactType(); name = contact.getName();
-        communicationName = contact.getCommunicationName(); department = contact.getDepartment(); designation = contact.getDesignation(); companyName = contact.getCompanyName();
-        mobile = contact.getMobile(); alternateMobile = contact.getAlternateMobile(); officeNumber = contact.getOfficeNumber(); email = contact.getEmail(); alternateEmail = contact.getAlternateEmail();
-        employeeId = contact.getEmployeeId(); gender = contact.getGender(); maritalStatus = contact.getMaritalStatus(); dateOfBirth = contact.getDateOfBirth(); anniversaryDate = contact.getAnniversaryDate();
-        bloodGroup = contact.getBloodGroup(); country = contact.getCountry(); state = contact.getState(); city = contact.getCity(); address = contact.getAddress(); pinCode = contact.getPinCode();
-        skills = contact.getSkills(); languages = contact.getLanguages(); emergencyContactName = contact.getEmergencyContactName(); emergencyContactNumber = contact.getEmergencyContactNumber();
-        photoUuid = contact.getPhotoUuid(); photoFile = photoUuid == null ? null : files.get(photoUuid); documentUuids = contact.getDocumentUuids();
-        documentFiles = documentUuids == null ? List.of() : documentUuids.stream().filter(Objects::nonNull).map(files::get).filter(Objects::nonNull).toList();
-        remarks = contact.getRemarks(); status = contact.isStatus(); createdBy = contact.getCreatedBy(); createdAt = contact.getCreatedAt(); updatedBy = contact.getUpdatedBy(); updatedAt = contact.getUpdatedAt();
+        id = contact.getId();
+        contactCode = contact.getContactCode();
+        contactType = contact.getContactType();
+        name = contact.getName();
+        communicationName = contact.getCommunicationName();
+        department = contact.getDepartment();
+        designation = contact.getDesignation();
+        companyName = contact.getCompanyName();
+        mobile = contact.getMobile();
+        alternateMobile = contact.getAlternateMobile();
+        officeNumber = contact.getOfficeNumber();
+        email = contact.getEmail();
+        alternateEmail = contact.getAlternateEmail();
+        employeeId = contact.getEmployeeId();
+        gender = contact.getGender();
+        maritalStatus = contact.getMaritalStatus();
+        dateOfBirth = contact.getDateOfBirth();
+        anniversaryDate = contact.getAnniversaryDate();
+        bloodGroup = contact.getBloodGroup();
+        country = contact.getCountry();
+        state = contact.getState();
+        city = contact.getCity();
+        address = contact.getAddress();
+        pinCode = contact.getPinCode();
+        skills = contact.getSkills();
+        languages = contact.getLanguages();
+        emergencyContactName = contact.getEmergencyContactName();
+        emergencyContactNumber = contact.getEmergencyContactNumber();
+        photoUuid = contact.getPhotoUuid();
+        photoFile = Objects.isNull(photoUuid) ? null : files.get(photoUuid);
+        documentUuids = contact.getDocumentUuids();
+        documentFiles = Objects.isNull(documentUuids) ? List.of() : documentUuids.stream().filter(Objects::nonNull).map(files::get).filter(Objects::nonNull).toList();
+        remarks = contact.getRemarks();
+        status = contact.isStatus();
+        createdBy = contact.getCreatedBy();
+        createdAt = contact.getCreatedAt();
+        updatedBy = contact.getUpdatedBy();
+        updatedAt = contact.getUpdatedAt();
     }
 }

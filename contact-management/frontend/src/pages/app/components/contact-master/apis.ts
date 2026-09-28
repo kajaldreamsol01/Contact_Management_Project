@@ -575,26 +575,41 @@ const contactSlice = createSlice({
     }),
 })
 
-export type AppRole = 'ADMIN' | 'HOD' | 'MANAGEMENT' | 'USER'
+export type AppRole = string
+
+export type AccessProfile = {
+  dashboardAccess: boolean
+  adminAccess: boolean
+  contactUpdateAccess: boolean
+  gridDownloadAccess: boolean
+  displayRole: string
+  landingPath: string
+}
 
 export const normalizeRoles = (value: unknown): AppRole[] => {
-  const raw = Array.isArray(value)
-    ? value
-    : value
-      ? [value]
-      : []
+  const raw = Array.isArray(value) ? value : value ? [value] : []
+  return Array.from(new Set(raw.map((role) => String(role || '').trim().toUpperCase().replace(/^ROLE_/, '')).filter(Boolean)))
+}
 
-  return raw
-    .map((role) =>
-      String(role || '')
-        .trim()
-        .toUpperCase()
-        .replace(/^ROLE_/, ''),
-    )
-    .filter(
-      (role): role is AppRole =>
-        ['ADMIN', 'HOD', 'MANAGEMENT', 'USER'].includes(role),
-    )
+export const normalizeAccessProfile = (value: unknown): AccessProfile => {
+  const data = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
+  return {
+    dashboardAccess: Boolean(data.dashboardAccess),
+    adminAccess: Boolean(data.adminAccess),
+    contactUpdateAccess: Boolean(data.contactUpdateAccess),
+    gridDownloadAccess: Boolean(data.gridDownloadAccess),
+    displayRole: String(data.displayRole || 'User'),
+    landingPath: String(data.landingPath || '/contacts'),
+  }
+}
+
+export const readAccessProfile = (): AccessProfile => {
+  try {
+    return normalizeAccessProfile(JSON.parse(localStorage.getItem('accessProfile') || '{}'))
+  }
+  catch {
+    return normalizeAccessProfile({})
+  }
 }
 
 const localDate = (date: Date) =>
@@ -627,6 +642,7 @@ type UiState = {
   dropdowns: ContactDropdownData | null
   email: string
   roles: AppRole[]
+  access: AccessProfile
 }
 
 const readRoles = (): AppRole[] => {
@@ -645,6 +661,7 @@ const initialUiState: UiState = {
   dropdowns: null,
   email: localStorage.getItem('loggedInUser') || '',
   roles: readRoles(),
+  access: readAccessProfile(),
 }
 
 const uiSlice = createSlice({
@@ -663,10 +680,12 @@ const uiSlice = createSlice({
     setSession: (state, action) => {
       state.email = action.payload.email || ''
       state.roles = normalizeRoles(action.payload.roles)
+      state.access = normalizeAccessProfile(action.payload.access)
     },
     resetUiSession: (state) => {
       state.email = ''
       state.roles = []
+      state.access = normalizeAccessProfile({})
       state.draftFilters = defaultStoredFilters()
       state.appliedFilters = defaultStoredFilters()
       state.dropdowns = null

@@ -16,6 +16,6 @@ public enum MasterType {
     }
 
     public static MasterType fromPath(String path) {
-        return Arrays.stream(values()).filter(v -> v.path.equalsIgnoreCase(path) || v.name().equalsIgnoreCase(path)).findFirst().orElseThrow(() -> new IllegalArgumentException("Invalid master type: " + path));
+        return Arrays.stream(values()).filter(masterType -> masterType.path.equalsIgnoreCase(path) || masterType.name().equalsIgnoreCase(path)).findFirst().orElseThrow(() -> new IllegalArgumentException("Invalid master type: " + path));
     }
 }

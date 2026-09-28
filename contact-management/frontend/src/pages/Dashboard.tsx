@@ -37,12 +37,13 @@ import {
   getContactAnalytics,
   getStatusCount,
   filterContactPage,
-  getContactTableConfig,
+  getContactHistory,
   type ContactAnalytics,
+  type ContactHistoryItem,
   type ContactListItem,
   type ContactSearchParams,
-  type ContactTableColumnConfig,
 } from "./app/components/contact-master/apis";
+import { getDashboardTableConfigs, type DashboardTableConfigMap, type ReactTableColumnConfig } from "./app/components/contact-master/tableConfig";
 
 declare global {
   interface Window {
@@ -164,6 +165,21 @@ function CountLink({ value, onClick }: { value: number; onClick: () => void }) {
 
 type SummaryRow = Record<string, string | number>;
 
+type SummaryCell = MRT_ColumnDef<SummaryRow>["Cell"];
+
+const summaryColumns = (
+  config: ReactTableColumnConfig[],
+  cells: Record<string, SummaryCell> = {},
+): MRT_ColumnDef<SummaryRow>[] =>
+  config.map((item) => ({
+    id: item.key,
+    accessorKey: item.key,
+    header: item.header,
+    size: item.size,
+    enableSorting: item.sortable ?? false,
+    ...(cells[item.key] ? { Cell: cells[item.key] } : {}),
+  }));
+
 function SummaryTable({
   columns,
   data,
@@ -273,10 +289,12 @@ function AnalyticsCard({
 function DetailTableDialog({
   selection,
   dateRange,
+  tableConfigs,
   onClose,
 }: {
   selection: DetailSelection | null;
   dateRange: DateRange;
+  tableConfigs: DashboardTableConfigMap;
   onClose: () => void;
 }) {
   const [data, setData] = useState<ContactListItem[]>([]);
@@ -288,46 +306,61 @@ function DetailTableDialog({
     pageSize: 5,
   });
   const [sorting, setSorting] = useState<MRT_SortingState>([]);
-  const [tableConfig, setTableConfig] = useState<ContactTableColumnConfig[]>([]);
+  const tableConfig = tableConfigs.DASHBOARD_DETAIL ?? [];
   const [historyContact, setHistoryContact] = useState<{ id: number; contactCode: string } | null>(null);
+  const [historyItems, setHistoryItems] = useState<ContactHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+
+  const openHistory = useCallback(async (contact: { id: number; contactCode: string }) => {
+    setHistoryContact(contact);
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      setHistoryItems(await getContactHistory(contact.id));
+    } catch (exception) {
+      setHistoryItems([]);
+      setHistoryError(exception instanceof Error ? exception.message : "Unable to load contact history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   const selectionKey = useMemo(
     () => selection ? JSON.stringify({ filters: selection.filters, allTime: selection.allTime }) : "",
     [selection]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    getContactTableConfig()
-      .then((config) => {
-        if (!cancelled) setTableConfig(config);
-      })
-      .catch(() => {
-        if (!cancelled) setTableConfig([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+
+  const filterRequestRef = useRef<{ key: string; promise: ReturnType<typeof filterContactPage> } | null>(null);
 
   useEffect(() => {
     if (!selection) return;
 
     let cancelled = false;
     const sort = sorting[0];
-
-    setLoading(true);
-    setError("");
-
-    filterContactPage({
+    const params = {
       ...selection.filters,
       fromDate: selection.allTime ? undefined : dateRange.fromDate,
       toDate: selection.allTime ? undefined : dateRange.toDate,
       page: pagination.pageIndex,
       size: pagination.pageSize,
       sort: sort?.id || "id",
-      direction: sort?.desc === false ? "asc" : "desc",
-    })
+      direction: (sort?.desc === false ? "asc" : "desc") as "asc" | "desc",
+    };
+    const requestKey = JSON.stringify(params);
+
+    setLoading(true);
+    setError("");
+
+    const promise =
+      filterRequestRef.current?.key === requestKey
+        ? filterRequestRef.current.promise
+        : filterContactPage(params);
+
+    filterRequestRef.current = { key: requestKey, promise };
+
+    promise
       .then((page) => {
         if (cancelled) return;
         setData(page.content);
@@ -358,127 +391,47 @@ function DetailTableDialog({
     setSorting([]);
   }, [selectionKey]);
 
-  const columns = useMemo<MRT_ColumnDef<ContactListItem>[]>(() => {
-    const baseColumns: MRT_ColumnDef<ContactListItem>[] = [
-      {
-        accessorKey: "contactCode",
-        header: "Contact Code",
-        size: 120,
-        Cell: ({ row }) => {
-          const code = row.original.contactCode;
-          if (!code) return "N/A";
+  const columns = useMemo<MRT_ColumnDef<ContactListItem>[]>(
+    () =>
+      tableConfig.map((item) => {
+        const column: MRT_ColumnDef<ContactListItem> = {
+          id: item.key,
+          accessorKey: item.key,
+          header: item.header,
+          size: item.size,
+          enableSorting: item.sortable ?? false,
+        };
 
-          return (
-            <ButtonBase
-              component="button"
-              type="button"
-              title="View contact history"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setHistoryContact({
-                  id: Number(row.original.id),
-                  contactCode: String(code),
-                });
-              }}
-              sx={{
-                p: 0,
-                minWidth: 0,
-                color: "#1976d2",
-                fontSize: 12.5,
-                fontWeight: 800,
-                lineHeight: 1.25,
-                textDecoration: "underline",
-                textUnderlineOffset: "2px",
-                cursor: "pointer",
-                borderRadius: 0.5,
-                "&:hover": {
-                  color: "#0d47a1",
-                  bgcolor: "#eff6ff",
-                  textDecoration: "underline",
-                },
-              }}
-            >
-              {String(code)}
-            </ButtonBase>
-          );
-        },
-      },
-      { accessorKey: "name", header: "Name", size: 150 },
-      { accessorKey: "contactType", header: "Contact Type", size: 110 },
-      { accessorKey: "department", header: "Department", size: 120 },
-      { accessorKey: "designation", header: "Designation", size: 130 },
-      { accessorKey: "companyName", header: "Company", size: 140 },
-      { accessorKey: "mobile", header: "Mobile", size: 115 },
-      { accessorKey: "alternateMobile", header: "Alternate Mobile", size: 130 },
-      { accessorKey: "officeNumber", header: "Office Number", size: 120 },
-      { accessorKey: "email", header: "Email", size: 190 },
-      { accessorKey: "alternateEmail", header: "Alternate Email", size: 190 },
-      { accessorKey: "employeeId", header: "Employee ID", size: 110 },
-      { accessorKey: "gender", header: "Gender", size: 90 },
-      { accessorKey: "maritalStatus", header: "Marital Status", size: 110 },
-      { accessorKey: "dateOfBirth", header: "DOB", size: 110 },
-      { accessorKey: "bloodGroup", header: "Blood Group", size: 100 },
-      { accessorKey: "country", header: "Country", size: 110 },
-      { accessorKey: "state", header: "State", size: 110 },
-      { accessorKey: "city", header: "City", size: 110 },
-      { accessorKey: "address", header: "Address", size: 220 },
-      { accessorKey: "pinCode", header: "Pin Code", size: 90 },
-      { accessorKey: "remarks", header: "Remarks", size: 180 },
-      {
-        accessorKey: "status",
-        header: "Status",
-        size: 90,
-        Cell: ({ row }) => (row.original.status ? "Inactive" : "Active"),
-      },
-      {
-        accessorKey: "createdAt",
-        header: "Created On",
-        size: 150,
-        Cell: ({ cell }) => {
-          const value = cell.getValue<string>();
-          return formatDateTime(value);
-        },
-      },
-    ];
-
-    if (!tableConfig.length) return baseColumns;
-
-    const normalize = (value: string) =>
-      value.replace(/[^a-z0-9]/gi, "").toLowerCase();
-
-    const configByKey = new Map(
-      tableConfig.map((item) => [normalize(item.key), item])
-    );
-
-    return baseColumns
-      .map((column, index) => {
-        const key = String(
-          (column as any).id ?? (column as any).accessorKey ?? ""
-        );
-        const config = configByKey.get(normalize(key));
-
-        if (!config) {
-          return { column, index, order: Number.MAX_SAFE_INTEGER };
+        if (item.key === "contactCode") {
+          column.Cell = ({ row }) => {
+            const code = row.original.contactCode;
+            if (!code) return "N/A";
+            return (
+              <ButtonBase
+                component="button"
+                type="button"
+                title="View contact history"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void openHistory({ id: Number(row.original.id), contactCode: String(code) });
+                }}
+                sx={{ p: 0, minWidth: 0, color: "#1976d2", fontSize: 12.5, fontWeight: 800, lineHeight: 1.25, textDecoration: "underline", textUnderlineOffset: "2px", cursor: "pointer", borderRadius: 0.5, "&:hover": { color: "#0d47a1", bgcolor: "#eff6ff", textDecoration: "underline" } }}
+              >
+                {String(code)}
+              </ButtonBase>
+            );
+          };
+        } else if (item.key === "status") {
+          column.Cell = ({ row }) => (row.original.status ? "Inactive" : "Active");
+        } else if (item.key === "createdAt") {
+          column.Cell = ({ cell }) => formatDateTime(cell.getValue<string>());
         }
 
-        if (config.visible === false) return null;
-
-        return {
-          column: {
-            ...column,
-            header: config.header || String((column as any).header || key),
-          },
-          index,
-          order: Number.isFinite(config.order)
-            ? Number(config.order)
-            : index,
-        };
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.order - b.order || a.index - b.index)
-      .map((item: any) => item.column);
-  }, [tableConfig]);
+        return column;
+      }),
+    [tableConfig],
+  );
 
   return (
     <>
@@ -552,8 +505,11 @@ function DetailTableDialog({
 
     <ContactHistoryDialog
       open={Boolean(historyContact)}
-      contactId={historyContact?.id ?? null}
       contactCode={historyContact?.contactCode ?? ""}
+      items={historyItems}
+      tableConfig={tableConfigs.CONTACT_HISTORY ?? []}
+      loading={historyLoading}
+      error={historyError}
       onClose={() => setHistoryContact(null)}
     />
     </>
@@ -562,9 +518,11 @@ function DetailTableDialog({
 
 function AmChartsPanel({
   data,
+  tableConfigs,
   onOpenDetails,
 }: {
   data: ContactAnalytics;
+  tableConfigs: DashboardTableConfigMap;
   onOpenDetails: (selection: DetailSelection) => void;
 }) {
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -576,6 +534,9 @@ function AmChartsPanel({
     active: "graph",
     stacked: "graph",
   });
+  const contactTypeColumns = tableConfigs.DASHBOARD_CONTACT_TYPE ?? [];
+  const statusColumns = tableConfigs.DASHBOARD_STATUS ?? [];
+  const stackedColumns = tableConfigs.DASHBOARD_CONTACT_TYPE_STATUS ?? [];
 
   const contactTypes = useMemo(
     () =>
@@ -742,23 +703,14 @@ function AmChartsPanel({
                   count: item.value,
                   percentage: data.total ? `${Math.round((item.value / data.total) * 100)}%` : "0%",
                 }))}
-                columns={[
-                  { accessorKey: "contactType", header: "Contact Type" },
-                  {
-                    accessorKey: "count",
-                    header: "Count",
-                    Cell: ({ row }) => (
-                      <CountLink
-                        value={Number(row.original.count)}
-                        onClick={() => onOpenDetails({
-                          title: `${row.original.contactType} Contacts`,
-                          filters: { contactType: String(row.original.contactType) },
-                        })}
-                      />
-                    ),
-                  },
-                  { accessorKey: "percentage", header: "Percentage" },
-                ]}
+                columns={summaryColumns(contactTypeColumns, {
+                  count: ({ row }) => (
+                    <CountLink
+                      value={Number(row.original.count)}
+                      onClick={() => onOpenDetails({ title: `${row.original.contactType} Contacts`, filters: { contactType: String(row.original.contactType) } })}
+                    />
+                  ),
+                })}
               />
             )}
           </AnalyticsCard>
@@ -777,19 +729,13 @@ function AmChartsPanel({
                   { status: "Inactive", count: data.inactive, percentage: data.total ? `${((data.inactive / data.total) * 100).toFixed(1)}%` : "0%" },
                   { status: "Total", count: data.total, percentage: "100%" },
                 ]}
-                columns={[
-                  { accessorKey: "status", header: "Status" },
-                  {
-                    accessorKey: "count",
-                    header: "Count",
-                    Cell: ({ row }) => {
-                      const status = String(row.original.status);
-                      const filters = status === "Active" ? { status: false } : status === "Inactive" ? { status: true } : {};
-                      return <CountLink value={Number(row.original.count)} onClick={() => onOpenDetails({ title: `${status} Contacts`, filters })} />;
-                    },
+                columns={summaryColumns(statusColumns, {
+                  count: ({ row }) => {
+                    const status = String(row.original.status);
+                    const filters = status === "Active" ? { status: false } : status === "Inactive" ? { status: true } : {};
+                    return <CountLink value={Number(row.original.count)} onClick={() => onOpenDetails({ title: `${status} Contacts`, filters })} />;
                   },
-                  { accessorKey: "percentage", header: "Percentage" },
-                ]}
+                })}
               />
             )}
           </AnalyticsCard>
@@ -813,24 +759,11 @@ function AmChartsPanel({
                   inactive: item.inactive,
                   total: item.active + item.inactive,
                 }))}
-                columns={[
-                  { accessorKey: "contactType", header: "Contact Type" },
-                  {
-                    accessorKey: "active",
-                    header: "Active",
-                    Cell: ({ row }) => <CountLink value={Number(row.original.active)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - Active Contacts`, filters: { contactType: String(row.original.contactType), status: false } })} />,
-                  },
-                  {
-                    accessorKey: "inactive",
-                    header: "Inactive",
-                    Cell: ({ row }) => <CountLink value={Number(row.original.inactive)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - Inactive Contacts`, filters: { contactType: String(row.original.contactType), status: true } })} />,
-                  },
-                  {
-                    accessorKey: "total",
-                    header: "Total",
-                    Cell: ({ row }) => <CountLink value={Number(row.original.total)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - All Contacts`, filters: { contactType: String(row.original.contactType) } })} />,
-                  },
-                ]}
+                columns={summaryColumns(stackedColumns, {
+                  active: ({ row }) => <CountLink value={Number(row.original.active)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - Active Contacts`, filters: { contactType: String(row.original.contactType), status: false } })} />,
+                  inactive: ({ row }) => <CountLink value={Number(row.original.inactive)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - Inactive Contacts`, filters: { contactType: String(row.original.contactType), status: true } })} />,
+                  total: ({ row }) => <CountLink value={Number(row.original.total)} onClick={() => onOpenDetails({ title: `${row.original.contactType} - All Contacts`, filters: { contactType: String(row.original.contactType) } })} />,
+                })}
               />
             )}
           </AnalyticsCard>
@@ -842,9 +775,11 @@ function AmChartsPanel({
 
 function ReactChartPanel({
   data,
+  tableConfigs,
   onOpenDetails,
 }: {
   data: ContactAnalytics;
+  tableConfigs: DashboardTableConfigMap;
   onOpenDetails: (selection: DetailSelection) => void;
 }) {
   const mixedRef = useRef<HTMLCanvasElement | null>(null);
@@ -856,6 +791,9 @@ function ReactChartPanel({
     types: "graph",
     status: "graph",
   });
+  const trendColumns = tableConfigs.DASHBOARD_CONTACT_TYPE_TREND ?? [];
+  const cityColumns = tableConfigs.DASHBOARD_CITY ?? [];
+  const statusColumns = tableConfigs.DASHBOARD_STATUS ?? [];
 
   const contactTypes = useMemo(
     () =>
@@ -1109,30 +1047,14 @@ function ReactChartPanel({
             {views.trend === "table" && (
               <SummaryTable
                 data={contactTypes.map((item) => ({ contactType: item.label, contacts: item.value, share: data.total ? `${((item.value / data.total) * 100).toFixed(1)}%` : "0%" }))}
-                columns={[
-                  { accessorKey: "contactType", header: "Contact Type" },
-              
-                  {
-                    accessorKey: "contacts",
-                    header: "Contacts",
-
-                    Cell: ({ row }) => (
-                      <CountLink
-                        value={Number(row.original.contacts)}
-                        onClick={() =>
-                          onOpenDetails({
-                            title: `${row.original.contactType} Contacts`,
-                            filters: {
-                              contactType: String(
-                                row.original.contactType
-                              ),
-                            },
-                          })
-                        }
-                      />
-                    ),
-                  }
-                ]}
+                columns={summaryColumns(trendColumns, {
+                  contacts: ({ row }) => (
+                    <CountLink
+                      value={Number(row.original.contacts)}
+                      onClick={() => onOpenDetails({ title: `${row.original.contactType} Contacts`, filters: { contactType: String(row.original.contactType) } })}
+                    />
+                  ),
+                })}
               />
             )}
           </AnalyticsCard>
@@ -1183,34 +1105,11 @@ function ReactChartPanel({
                     : "0%",
                 }))}
 
-                columns={[
-                  {
-                    accessorKey: "city",
-                    header: "City",
-                  },
-                  {
-                    accessorKey: "count",
-                    header: "Count",
-
-                    Cell: ({ row }) => (
-                      <CountLink
-                        value={Number(row.original.count)}
-                        onClick={() =>
-                          onOpenDetails({
-                            title: `${row.original.city} Contacts`,
-                            filters: {
-                              city: String(row.original.city),
-                            },
-                          })
-                        }
-                      />
-                    ),
-                  },
-                  {
-                    accessorKey: "share",
-                    header: "Share %",
-                  },
-                ]}
+                columns={summaryColumns(cityColumns, {
+                  count: ({ row }) => (
+                    <CountLink value={Number(row.original.count)} onClick={() => onOpenDetails({ title: `${row.original.city} Contacts`, filters: { city: String(row.original.city) } })} />
+                  ),
+                })}
               />
             )}
           </AnalyticsCard>
@@ -1225,11 +1124,9 @@ function ReactChartPanel({
                   { status: "Active", count: data.active, percentage: data.total ? `${((data.active / data.total) * 100).toFixed(1)}%` : "0%" },
                   { status: "Inactive", count: data.inactive, percentage: data.total ? `${((data.inactive / data.total) * 100).toFixed(1)}%` : "0%" },
                 ]}
-                columns={[
-                  { accessorKey: "status", header: "Status" },
-                  { accessorKey: "count", header: "Count", Cell: ({ row }) => <CountLink value={Number(row.original.count)} onClick={() => onOpenDetails({ title: `${row.original.status} Contacts`, filters: { status: row.original.status === "Inactive" } })} /> },
-                  { accessorKey: "percentage", header: "Percentage" },
-                ]}
+                columns={summaryColumns(statusColumns, {
+                  count: ({ row }) => <CountLink value={Number(row.original.count)} onClick={() => onOpenDetails({ title: `${row.original.status} Contacts`, filters: { status: row.original.status === "Inactive" } })} />,
+                })}
               />
             )}
           </AnalyticsCard>
@@ -1245,10 +1142,13 @@ function Dashboard() {
   const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange);
   const [data, setData] = useState<ContactAnalytics | null>(null);
   const [counts, setCounts] = useState({ total: 0, active: 0, inactive: 0 });
+  const [tableConfigs, setTableConfigs] = useState<DashboardTableConfigMap>({});
   const [detailSelection, setDetailSelection] = useState<DetailSelection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const analyticsRequestKey = useRef("");
+  const countsLoaded = useRef(false);
+  const tableConfigsLoaded = useRef(false);
   const today = useMemo(() => formatDate(new Date()), []);
 
   const loadAnalytics = useCallback((force = false) => {
@@ -1276,23 +1176,38 @@ function Dashboard() {
       .finally(() => setLoading(false));
   }, [appliedRange.fromDate, appliedRange.toDate]);
 
-  const loadCounts = useCallback(async () => {
+  const loadCounts = useCallback(async (force = false) => {
+    if (!force && countsLoaded.current) return;
+    countsLoaded.current = true;
     try {
       const result = await getStatusCount();
       setCounts({ total: result.active + result.inactive, active: result.active, inactive: result.inactive });
     } catch {
+      countsLoaded.current = false;
       setCounts({ total: 0, active: 0, inactive: 0 });
+    }
+  }, []);
+
+  const loadTableConfigs = useCallback(async () => {
+    if (tableConfigsLoaded.current) return;
+    tableConfigsLoaded.current = true;
+    try {
+      setTableConfigs(await getDashboardTableConfigs());
+    } catch {
+      tableConfigsLoaded.current = false;
+      setTableConfigs({});
     }
   }, []);
 
   useEffect(() => {
 
     void loadAnalytics(false);
-    void loadCounts();
+    void loadCounts(false);
+    void loadTableConfigs();
 
     const refresh = () => {
       void loadAnalytics(true);
-      void loadCounts();
+      void loadCounts(true);
     };
 
     window.addEventListener("contact-analytics-updated", refresh);
@@ -1300,7 +1215,7 @@ function Dashboard() {
     return () => {
       window.removeEventListener("contact-analytics-updated", refresh);
     };
-  }, [loadAnalytics, loadCounts]);
+  }, [loadAnalytics, loadCounts, loadTableConfigs]);
 
   const stats = useMemo(() => [
     { label:"Total Contacts",value:counts.total,icon:<GroupsOutlinedIcon />,color:UI_PRIMARY,darkColor:UI_PRIMARY_DARK,lightColor:UI_PRIMARY_LIGHT,filters:{},allTime:true },
@@ -1477,11 +1392,11 @@ function Dashboard() {
       </Grid>
 
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12 }}><AmChartsPanel data={data} onOpenDetails={handleOpenDetails} /></Grid>
-        <Grid size={{ xs: 12 }}><ReactChartPanel data={data} onOpenDetails={handleOpenDetails} /></Grid>
+        <Grid size={{ xs: 12 }}><AmChartsPanel data={data} tableConfigs={tableConfigs} onOpenDetails={handleOpenDetails} /></Grid>
+        <Grid size={{ xs: 12 }}><ReactChartPanel data={data} tableConfigs={tableConfigs} onOpenDetails={handleOpenDetails} /></Grid>
       </Grid>
 
-      {detailSelection && <DetailTableDialog selection={detailSelection} dateRange={appliedRange} onClose={() => setDetailSelection(null)} />}
+      {detailSelection && <DetailTableDialog selection={detailSelection} dateRange={appliedRange} tableConfigs={tableConfigs} onClose={() => setDetailSelection(null)} />}
     </Box>
   );
 }

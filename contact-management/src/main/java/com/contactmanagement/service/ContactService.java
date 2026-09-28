@@ -7,7 +7,13 @@ import com.contactmanagement.common.dto.CommonStatusCountDto;
 import com.contactmanagement.common.dto.ContactDataDto;
 import com.contactmanagement.common.response.ApiResponse;
 import com.contactmanagement.common.util.PaginationUtil;
-import com.contactmanagement.dto.*;
+import com.contactmanagement.dto.ContactAnalyticsResponseDto;
+import com.contactmanagement.dto.ContactFileResponseDto;
+import com.contactmanagement.dto.ContactHistoryResponseDto;
+import com.contactmanagement.dto.ContactListResponseDto;
+import com.contactmanagement.dto.ContactRequestDto;
+import com.contactmanagement.dto.ContactResponseDto;
+import com.contactmanagement.dto.ContactSearchRequestDto;
 import com.contactmanagement.entity.Contact;
 import com.contactmanagement.processor.ContactFileProcessor;
 import com.contactmanagement.processor.ContactHistoryProcessor;
@@ -29,7 +35,11 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -37,9 +47,7 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class ContactService {
-
     private static final Set<String> SORT_FIELDS = Set.of("id", "contactCode", "name", "mobile", "email", "department", "contactType", "city", "createdAt", "updatedAt");
-
     private final ContactRepository repository;
     private final ContactHistoryRepository historyRepository;
     private final ContactHistoryProcessor historyProcessor;
@@ -167,9 +175,8 @@ public class ContactService {
 
     private Map<Long, String> userNames(Stream<Long> userIds) {
         return userIds.filter(Objects::nonNull).distinct().flatMap(userId -> {
-                    String userName = cache.get("contact:user-name:" + userId, String.class);
-                    return StringUtils.hasText(userName) ? Stream.of(Map.entry(userId, userName)) : Stream.empty();
-                })
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (firstValue, secondValue) -> firstValue, LinkedHashMap::new));
+            String userName = cache.get("contact:user-name:" + userId, String.class);
+            return StringUtils.hasText(userName) ? Stream.of(Map.entry(userId, userName)) : Stream.empty();
+        }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (firstValue, secondValue) -> firstValue, LinkedHashMap::new));
     }
 }

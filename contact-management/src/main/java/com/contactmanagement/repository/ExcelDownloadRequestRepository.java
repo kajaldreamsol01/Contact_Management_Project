@@ -9,5 +9,6 @@ import java.util.Optional;
 
 public interface ExcelDownloadRequestRepository extends JpaRepository<ExcelDownloadRequest, Long> {
     Optional<ExcelDownloadRequest> findByToken(String token);
+
     Page<ExcelDownloadRequest> findByStatusIgnoreCaseOrderByIdDesc(String status, Pageable pageable);
 }

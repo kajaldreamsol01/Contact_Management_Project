@@ -1,6 +1,10 @@
 package com.contactmanagement.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,7 +33,6 @@ public class FileMapping {
 
     @PrePersist
     void generateUuid() {
-        if (Objects.isNull(uuid))
-            uuid = UUID.randomUUID().toString().replace("-", "");
+        if (Objects.isNull(uuid)) uuid = UUID.randomUUID().toString().replace("-", "");
     }
 }

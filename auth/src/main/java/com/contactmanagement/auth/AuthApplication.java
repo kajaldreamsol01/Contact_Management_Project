@@ -2,13 +2,12 @@ package com.contactmanagement.auth;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
+@SpringBootApplication(excludeName = {"org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration", "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration", "org.springframework.boot.devtools.autoconfigure.DevToolsDataSourceAutoConfiguration"})
+@EnableDiscoveryClient
 @EnableFeignClients
-@SpringBootApplication(excludeName = {
-        "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-        "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
-})
 public class AuthApplication {
     public static void main(String[] args) {
         SpringApplication.run(AuthApplication.class, args);

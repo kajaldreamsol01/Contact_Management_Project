@@ -95,3 +95,41 @@ export const getReactTableConfig = async (
 
   return normalizeTableConfig(data?.data)
 }
+
+
+export type DashboardTableConfigMap = Record<string, ReactTableColumnConfig[]>
+
+let dashboardTableConfigPromise: Promise<DashboardTableConfigMap> | null = null
+
+export const getDashboardTableConfigs = async (): Promise<DashboardTableConfigMap> => {
+  if (!dashboardTableConfigPromise) {
+    dashboardTableConfigPromise = axios
+      .get('/contact/table-config/dashboard/all')
+      .then((response) => {
+        const data = response.data
+
+        if (String(data?.status || '').toUpperCase() !== 'SUCCESS') {
+          throw new Error(
+            data?.error ||
+              data?.message ||
+              'Unable to load dashboard table configs',
+          )
+        }
+
+        const raw = data?.data ?? {}
+
+        return Object.fromEntries(
+          Object.entries(raw).map(([key, value]) => [
+            key,
+            normalizeTableConfig(value),
+          ]),
+        )
+      })
+      .catch((error) => {
+        dashboardTableConfigPromise = null
+        throw error
+      })
+  }
+
+  return dashboardTableConfigPromise
+}

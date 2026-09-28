@@ -31,7 +31,6 @@ public class ExcelDownloadApprovalService {
     private final ContactService contactService;
     private final EmailComponent emailComponent;
     private final NotificationComponent notificationComponent;
-
     @Value("${common.admin-email:}")
     private String adminEmail;
 
@@ -99,7 +98,7 @@ public class ExcelDownloadApprovalService {
     @Transactional
     public ApiResponse<Map<String, Object>> approve(Long id, String adminEmailAddress) {
         ExcelDownloadRequest item = repository.findById(id).orElse(null);
-        if (item == null) return ApiResponse.response("FAILED", "Download request not found");
+        if (Objects.isNull(item)) return ApiResponse.response("FAILED", "Download request not found");
         if (!"PENDING".equalsIgnoreCase(item.getStatus()))
             return ApiResponse.response("FAILED", "Request is already " + item.getStatus());
         try {
@@ -122,15 +121,15 @@ public class ExcelDownloadApprovalService {
             notificationComponent.updateApprovalStatus(item.getId(), "APPROVED");
             notificationComponent.createDownloadDecision(item.getId(), item.getRequesterEmail(), "APPROVED", "Your Excel download request has been approved by Admin and emailed to " + item.getRequesterEmail(), fileName, excel);
             return ApiResponse.response("SUCCESS", "Request approved. Excel email is being sent to requester", Map.of("requestId", item.getId(), "status", item.getStatus()));
-        } catch (Exception e) {
-            return ApiResponse.response("FAILED", "Approval failed while generating/sending Excel: " + Objects.toString(e.getMessage(), "Unknown error"));
+        } catch (Exception exception) {
+            return ApiResponse.response("FAILED", "Approval failed while generating/sending Excel: " + Objects.toString(exception.getMessage(), "Unknown error"));
         }
     }
 
     @Transactional
     public ApiResponse<Map<String, Object>> reject(Long id, String adminEmailAddress) {
         ExcelDownloadRequest item = repository.findById(id).orElse(null);
-        if (item == null) return ApiResponse.response("FAILED", "Download request not found");
+        if (Objects.isNull(item)) return ApiResponse.response("FAILED", "Download request not found");
         if (!"PENDING".equalsIgnoreCase(item.getStatus()))
             return ApiResponse.response("FAILED", "Request is already " + item.getStatus());
         item.setStatus("REJECTED");
@@ -147,15 +146,7 @@ public class ExcelDownloadApprovalService {
     }
 
     private String requestSummary(ExcelDownloadRequest item) {
-        return "Download Type: Grid / Filtered Records\n" +
-                "From Date: " + Objects.toString(item.getFromDate(), "-") + "\n" +
-                "To Date: " + Objects.toString(item.getToDate(), "-") + "\n" +
-                "Search: " + text(item.getSearchText()) + "\n" +
-                "Name: " + text(item.getName()) + "\n" +
-                "Contact Type: " + text(item.getContactType()) + "\n" +
-                "Department: " + text(item.getDepartment()) + "\n" +
-                "City: " + text(item.getCity()) + "\n" +
-                "Status: " + statusText(item.getContactStatus());
+        return "Download Type: Grid / Filtered Records\n" + "From Date: " + Objects.toString(item.getFromDate(), "-") + "\n" + "To Date: " + Objects.toString(item.getToDate(), "-") + "\n" + "Search: " + text(item.getSearchText()) + "\n" + "Name: " + text(item.getName()) + "\n" + "Contact Type: " + text(item.getContactType()) + "\n" + "Department: " + text(item.getDepartment()) + "\n" + "City: " + text(item.getCity()) + "\n" + "Status: " + statusText(item.getContactStatus());
     }
 
     private void copyFilters(ContactSearchRequestDto source, ExcelDownloadRequest target) {
@@ -192,6 +183,6 @@ public class ExcelDownloadApprovalService {
     }
 
     private String statusText(Boolean value) {
-        return value == null ? "All" : value ? "Inactive" : "Active";
+        return Objects.isNull(value) ? "All" : value ? "Inactive" : "Active";
     }
 }

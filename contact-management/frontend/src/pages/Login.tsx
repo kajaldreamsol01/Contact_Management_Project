@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, } from '@mui/material'
 import { useNavigate, } from 'react-router-dom'
 import InputField from '../pages/app/components/InputField'
 import api from '../api/axios'
-import { fetchContacts, getDropdowns, normalizeRoles, setDropdownCache, setSession } from './app/components/contact-master/apis'
+import { fetchContacts, getDropdowns, normalizeAccessProfile, normalizeRoles, setDropdownCache, setSession } from './app/components/contact-master/apis'
 import { useAppDispatch } from '../store/hooks'
 function Login() {
   const navigate = useNavigate()
@@ -36,6 +36,7 @@ function Login() {
       localStorage.removeItem('roles')
       localStorage.removeItem('isLoggedIn')
       localStorage.removeItem('loggedInUser')
+      localStorage.removeItem('accessProfile')
       const response = await api.post('/auth/login', { email, password })
       const result = response.data
       const accessToken = result?.data?.accessToken
@@ -47,15 +48,18 @@ function Login() {
       }
       const roles = normalizeRoles(result?.data?.roles ??
         result?.data?.role)
+      const access = normalizeAccessProfile(result?.data)
       const loggedInUser = result?.data?.email || email
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('tokenType', result?.data?.tokenType || 'Bearer')
       localStorage.setItem('roles', JSON.stringify(roles))
       localStorage.setItem('isLoggedIn', 'true')
+      localStorage.setItem('accessProfile', JSON.stringify(access))
       localStorage.setItem('loggedInUser', loggedInUser)
       dispatch(setSession({
         email: loggedInUser,
         roles,
+        access,
       }))
       const toDate = new Date()
       const fromDate = new Date()
@@ -82,9 +86,7 @@ function Login() {
         // Login successful hai.
         // Preload fail ho to target page apna data baad me retry karega.
       }
-      navigate(roles.includes('ADMIN')
-        ? '/dashboard'
-        : '/contacts', { replace: true })
+      navigate(access.landingPath, { replace: true })
     }
     catch {
       setError('Invalid email or password')

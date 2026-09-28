@@ -17,11 +17,11 @@ public class JpaAuditConfig {
     AuditorAware<Long> auditorAware(){
         return ()->{
             try{
-                Object p=Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
-                if(!(p instanceof Jwt jwt)) return Optional.empty();
-                Object v=jwt.getClaims().get("userId");
-                if(v instanceof Number n) return Optional.of(n.longValue());
-                return Objects.nonNull(v)?Optional.of(Long.valueOf(v.toString())):Optional.empty();
+                Object principal=Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
+                if(!(principal instanceof Jwt jwt)) return Optional.empty();
+                Object userIdClaim=jwt.getClaims().get("userId");
+                if(userIdClaim instanceof Number userIdNumber) return Optional.of(userIdNumber.longValue());
+                return Objects.nonNull(userIdClaim)?Optional.of(Long.valueOf(userIdClaim.toString())):Optional.empty();
             }catch(Exception ignored){return Optional.empty();}
         };
     }

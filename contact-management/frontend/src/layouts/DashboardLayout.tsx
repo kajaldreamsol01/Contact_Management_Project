@@ -11,7 +11,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import { NavLink, Outlet } from 'react-router-dom'
 import logo from '../images/dreamsol-logo.png'
-import { approveExcelDownloadRequest, deleteNotification, downloadNotificationAttachment, getNotifications, markNotificationRead, rejectExcelDownloadRequest, type AppNotification, } from '../pages/app/components/contact-master/apis'
+import { approveExcelDownloadRequest, deleteNotification, downloadNotificationAttachment, getNotifications, markNotificationRead, readAccessProfile, rejectExcelDownloadRequest, type AppNotification, } from '../pages/app/components/contact-master/apis'
 const width = 250
 const collapsedWidth = 72
 const menus = [
@@ -54,24 +54,10 @@ function DashboardLayout() {
   const [approvalWorking, setApprovalWorking] = useState(false)
   const [approvalMessage, setApprovalMessage] = useState('')
   const [approvalError, setApprovalError] = useState('')
-  const roles = (() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('roles') || '[]')
-      return (Array.isArray(stored) ? stored : [stored])
-        .map((role) => String(role || '').toUpperCase().replace(/^ROLE_/, ''))
-    }
-    catch {
-      return []
-    }
-  })()
-  const isAdmin = roles.includes('ADMIN')
-  const isUser = roles.includes('USER')
-  const displayRole = roles.includes('ADMIN') ? 'Admin'
-    : roles.includes('MANAGEMENT') ? 'Management'
-      : roles.includes('HOD') ? 'HOD'
-        : roles.includes('USER') ? 'User'
-          : 'User'
-  const visibleMenus = isUser ? menus.filter(([path]) => path !== '/dashboard') : menus
+  const access = readAccessProfile()
+  const isAdmin = access.adminAccess
+  const displayRole = access.displayRole
+  const visibleMenus = access.dashboardAccess ? menus : menus.filter(([path]) => path !== '/dashboard')
   const openNotificationDetails = async (notification: AppNotification) => {
     const activeElement = document.activeElement
     if (activeElement instanceof HTMLElement) {
@@ -81,7 +67,7 @@ function DashboardLayout() {
     let selected = notification
     if (!isNotificationRead(notification)) {
       try {
-        await markNotificationRead(notification.id)
+        const nextUnreadCount = await markNotificationRead(notification.id)
         selected = {
           ...notification,
           isRead: true,
@@ -90,11 +76,8 @@ function DashboardLayout() {
         setNotifications((current) => current.map((item) => item.id === notification.id
           ? { ...item, isRead: true, read: true }
           : item))
-        setUnreadCount((current) => {
-          const next = Math.max(0, current - 1)
-          localStorage.setItem('notificationUnreadCount', String(next))
-          return next
-        })
+        setUnreadCount(nextUnreadCount)
+        localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
       }
       catch {
       }
@@ -148,7 +131,7 @@ function DashboardLayout() {
     if (isNotificationRead(notification)) {
       return
     }
-    await markNotificationRead(notification.id)
+    const nextUnreadCount = await markNotificationRead(notification.id)
     setNotifications((current) => current.map((item) => item.id === notification.id
       ? { ...item, isRead: true, read: true }
       : item))
@@ -156,12 +139,8 @@ function DashboardLayout() {
       ? { ...current, isRead: true, read: true }
       : current)
     setNotificationToast((current) => current?.id === notification.id ? null : current)
-    // PATCH read only. Do NOT call notification GET again.
-    setUnreadCount((current) => {
-      const next = Math.max(0, current - 1)
-      localStorage.setItem('notificationUnreadCount', String(next))
-      return next
-    })
+    setUnreadCount(nextUnreadCount)
+    localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
   }
   const handleDeleteNotification = async (notification: AppNotification) => {
     await deleteNotification(notification.id)
@@ -203,7 +182,7 @@ function DashboardLayout() {
     }
   }
   const handleLogout = () => {
-    ['accessToken', 'tokenType', 'roles', 'isLoggedIn', 'loggedInUser', 'notificationUnreadCount']
+    ['accessToken', 'tokenType', 'roles', 'accessProfile', 'isLoggedIn', 'loggedInUser', 'notificationUnreadCount']
       .forEach((key) => localStorage.removeItem(key))
     sessionStorage.clear()
     window.location.replace('/login')
@@ -409,7 +388,7 @@ function DashboardLayout() {
             anchor.blur()
             setNotificationAnchor(anchor)
           }} sx={{ color: 'white', mr: 1 }}>
-            <Badge badgeContent={unreadCount > 0 ? `+${unreadCount}` : 0} color='error' max={99}>
+            <Badge badgeContent={unreadCount > 0 ? String(unreadCount) : 0} color='error'>
               <NotificationsNoneOutlinedIcon />
             </Badge>
           </IconButton>
@@ -708,7 +687,7 @@ function DashboardLayout() {
 
             <Box sx={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: 0.5, mb: 2, fontSize: 14 }}>
               <b>From:</b><span>DreamSol System</span>
-              <b>To:</b><span>{selectedNotification?.audienceEmail || (selectedNotification?.audienceRole === 'ADMIN' ? 'Admin' : 'User')}</span>
+              <b>To:</b><span>{selectedNotification?.audienceEmail || selectedNotification?.audienceRole || 'User'}</span>
               <b>Subject:</b><span>{selectedNotification?.title}</span>
             </Box>
 

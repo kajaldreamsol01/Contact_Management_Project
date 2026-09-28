@@ -6,7 +6,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,7 +32,7 @@ public class JwtService {
     }
 
     public List<String> roles(Authentication auth) {
-        return auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).filter(r -> r != null && !r.isBlank()).map(r -> r.startsWith("ROLE_") ? r.substring(5) : r).toList();
+        return auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).filter(authority -> Objects.nonNull(authority) && !authority.isBlank()).map(authority -> authority.startsWith("ROLE_") ? authority.substring(5) : authority).toList();
     }
 
     public long expirySeconds() {

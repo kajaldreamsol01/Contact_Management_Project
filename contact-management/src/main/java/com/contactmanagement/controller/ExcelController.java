@@ -1,16 +1,16 @@
 package com.contactmanagement.controller;
 
-import com.contactmanagement.dto.ExcelDownloadApprovalRequestDto;
-import com.contactmanagement.processor.ExcelProcessor;
+import com.contactmanagement.common.dto.ContactDataDto;
 import com.contactmanagement.common.response.ApiResponse;
-import com.contactmanagement.security.SecurityUtil;
+import com.contactmanagement.dto.ContactSearchRequestDto;
+import com.contactmanagement.processor.ExcelProcessor;
 import com.contactmanagement.service.ContactService;
 import com.contactmanagement.service.ExcelDownloadApprovalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,7 +28,6 @@ public class ExcelController {
     private final ExcelProcessor processor;
     private final ExcelDownloadApprovalService approvalService;
     private final ContactService contactService;
-    private final SecurityUtil securityUtil;
 
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod')")
     @PostMapping("validate")
@@ -44,16 +43,19 @@ public class ExcelController {
 
     @PreAuthorize("@securityUtil.hasAuthority('admin')")
     @PostMapping("export")
-    public ResponseEntity<byte[]> export(@RequestBody List<com.contactmanagement.common.dto.ContactDataDto> contacts) {
+    public ResponseEntity<byte[]> export(@RequestBody List<ContactDataDto> contacts) {
         return processor.export(contacts);
     }
 
     @PreAuthorize("@securityUtil.hasAuthority('admin')")
+    @GetMapping("download")
+    public ResponseEntity<byte[]> download(@ModelAttribute ContactSearchRequestDto request) {
+        return processor.export(contactService.findForExport(request));
+    }
+
+    @PreAuthorize("@securityUtil.hasAuthority('admin')")
     @GetMapping("download-request/pending")
-    public ApiResponse<Map<String, Object>> pendingRequests(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+    public ApiResponse<Map<String, Object>> pendingRequests(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return approvalService.pending(page, size);
     }
 

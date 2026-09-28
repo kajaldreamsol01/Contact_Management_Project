@@ -5,6 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface ContactHistoryRepository extends JpaRepository<ContactHistory,Long> {
+public interface ContactHistoryRepository extends JpaRepository<ContactHistory, Long> {
     List<ContactHistory> findByContact_IdOrderByCreatedAtDescIdDesc(Long contactId);
 }

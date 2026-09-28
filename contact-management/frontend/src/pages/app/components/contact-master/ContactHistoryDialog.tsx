@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Alert,
   Box,
@@ -10,125 +10,184 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import type { MRT_ColumnDef } from "material-react-table";
 import ReactTable from "../ReactTable";
 import {
-  getContactHistory,
+  downloadContactFile,
   type ContactHistoryItem,
+  type ContactTableColumnConfig,
 } from "./apis";
-import { getReactTableConfig, type ReactTableColumnConfig } from "./tableConfig";
 
 type Props = {
   open: boolean;
-  contactId: number | null;
   contactCode: string;
+  items: ContactHistoryItem[];
+  tableConfig: ContactTableColumnConfig[];
+  loading?: boolean;
+  error?: string;
   onClose: () => void;
 };
 
-const value = (data: unknown) => String(data ?? "").trim() || "N/A";
-
-const dateTime = (data: unknown) => {
-  if (!data) return "N/A";
-  const date = new Date(String(data));
-  return Number.isNaN(date.getTime())
-    ? value(data)
-    : date.toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
+const textValue = (value: unknown) => {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "N/A";
+  const text = String(value ?? "").trim();
+  return text || "N/A";
 };
 
-const actionLabel = (action: string) =>
-  ({
-    CREATED: "Created",
-    UPDATED: "Updated",
-    INACTIVATED: "Inactive",
-    REACTIVATED: "Active",
-  })[action] ?? action.replaceAll("_", " ");
+const dateTime = (value: unknown) => {
+  if (!value) return "N/A";
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return textValue(value);
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+};
 
-const actionColor = (action: string) =>
-  action === "CREATED" || action === "REACTIVATED"
-    ? "success"
-    : action === "INACTIVATED"
-      ? "error"
-      : "info";
+const actionLabel = (action: string) => {
+  if (action === "INACTIVATED") return "Inactive";
+  if (action === "REACTIVATED") return "Active";
+  if (action === "CREATED") return "Created";
+  if (action === "UPDATED") return "Updated";
+  return action.replaceAll("_", " ");
+};
+
+const actionColor = (action: string) => {
+  if (action === "CREATED" || action === "REACTIVATED") return "success" as const;
+  if (action === "INACTIVATED") return "error" as const;
+  return "info" as const;
+};
+
+const historyValue = (row: ContactHistoryItem, key: string) => {
+  if (key === "action") return row.action;
+  if (key === "changedAt") return row.changedAt;
+  if (key === "source") return row.source;
+  if (key === "actionBy") return row.actionBy;
+  if (key === "fieldName") return row.fieldName;
+  if (key === "contactCode") return row.data?.contactCode ?? row.contactCode;
+  return row.data?.[key];
+};
 
 export default function ContactHistoryDialog({
   open,
-  contactId,
   contactCode,
+  items,
+  tableConfig,
+  loading = false,
+  error = "",
   onClose,
 }: Props) {
-  const [items, setItems] = useState<ContactHistoryItem[]>([]);
-  const [config, setConfig] = useState<ReactTableColumnConfig[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open || !contactId) return;
-    let active = true;
-
-    setLoading(true);
-    setError("");
-
-    Promise.all([
-      getContactHistory(contactId),
-      getReactTableConfig("CONTACT_HISTORY"),
-    ])
-      .then(([history, columns]) => {
-        if (!active) return;
-        setItems(history);
-        setConfig(columns);
-      })
-      .catch((e) => {
-        if (active)
-          setError(e instanceof Error ? e.message : "Unable to load contact history");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [open, contactId]);
-
   const columns = useMemo<MRT_ColumnDef<ContactHistoryItem>[]>(
     () =>
-      config.map((item) => {
-        const column: MRT_ColumnDef<ContactHistoryItem> = {
-          id: item.key,
-          header: item.header,
-          size: item.size,
-          enableSorting: item.sortable ?? false,
-          accessorFn: (row) => row[item.key as keyof ContactHistoryItem],
+      tableConfig.map((config) => {
+        const base: MRT_ColumnDef<ContactHistoryItem> = {
+          id: config.key,
+          header: config.header,
+          size: config.size,
+          enableSorting: config.sortable ?? false,
+          accessorFn: (row) => historyValue(row, config.key),
         };
 
-        if (item.key === "action") {
-          column.Cell = ({ row }) => (
-            <Chip
-              size="small"
-              color={actionColor(row.original.action)}
-              label={actionLabel(row.original.action)}
-            />
-          );
-        } else if (item.key === "changedAt") {
-          column.Cell = ({ row }) => dateTime(row.original.changedAt);
-        } else {
-          column.Cell = ({ row }) => (
-            <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25 }}>
-              {value(row.original[item.key as keyof ContactHistoryItem])}
-            </Box>
-          );
+        if (config.key === "action") {
+          return {
+            ...base,
+            Cell: ({ row }) => (
+              <Chip
+                size="small"
+                color={actionColor(row.original.action)}
+                label={actionLabel(row.original.action)}
+              />
+            ),
+          };
         }
 
-        return column;
+        if (config.key === "status") {
+          return {
+            ...base,
+            Cell: ({ row }) => {
+              const statusValue = historyValue(row.original, "status");
+              if (statusValue === null || statusValue === undefined || String(statusValue).trim() === "") return "N/A";
+              const inactive = statusValue === true || String(statusValue).toLowerCase() === "true";
+              return (
+                <Chip
+                  size="small"
+                  color={inactive ? "error" : "success"}
+                  label={inactive ? "Inactive" : "Active"}
+                />
+              );
+            },
+          };
+        }
+
+        if (
+          config.key === "changedAt" ||
+          config.key === "createdAt" ||
+          config.key === "updatedAt"
+        ) {
+          return {
+            ...base,
+            Cell: ({ row }) => dateTime(historyValue(row.original, config.key)),
+          };
+        }
+
+        if (config.key === "photo" || config.key === "photoUuid") {
+          return {
+            ...base,
+            Cell: ({ row }) => {
+              const fileValue = String(
+                historyValue(row.original, config.key) ??
+                historyValue(row.original, "photoUuid") ??
+                "",
+              ).trim();
+              if (!fileValue) return "N/A";
+              return (
+                <IconButton
+                  size="small"
+                  title="Download photo"
+                  onClick={() => void downloadContactFile(fileValue)}
+                >
+                  <DownloadOutlinedIcon fontSize="small" />
+                </IconButton>
+              );
+            },
+          };
+        }
+
+        if (config.key === "documents" || config.key === "documentUuids") {
+          return {
+            ...base,
+            Cell: ({ row }) => {
+              const fileValues =
+                historyValue(row.original, config.key) ??
+                historyValue(row.original, "documentUuids");
+              const files = Array.isArray(fileValues)
+                ? fileValues.map((fileValue) => String(fileValue).trim()).filter(Boolean)
+                : [];
+              if (!files.length) return "N/A";
+              return (
+                <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.2 }}>
+                  {files.join(", ")}
+                </Box>
+              );
+            },
+          };
+        }
+
+        return {
+          ...base,
+          Cell: ({ row }) => (
+            <Box sx={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25 }}>
+              {textValue(historyValue(row.original, config.key))}
+            </Box>
+          ),
+        };
       }),
-    [config]
+    [tableConfig],
   );
 
   return (
@@ -154,7 +213,6 @@ export default function ContactHistoryDialog({
           <HistoryOutlinedIcon />
           Contact History - {contactCode}
         </Box>
-
         <IconButton
           size="small"
           onClick={onClose}
@@ -171,13 +229,17 @@ export default function ContactHistoryDialog({
 
       <DialogContent dividers sx={{ p: 1.25, overflow: "hidden" }}>
         {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
-
+        {!loading && !error && items.length === 0 && (
+          <Alert severity="info" sx={{ mb: 1 }}>
+            No history found for this contact.
+          </Alert>
+        )}
         <ReactTable
           columns={columns}
           data={items}
           loading={loading}
           rowCount={items.length}
-          maxHeight={390}
+          maxHeight={470}
           defaultPageSize={10}
         />
       </DialogContent>

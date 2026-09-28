@@ -144,9 +144,7 @@ public class ExcelComponent {
             }
         }
         existing = Objects.requireNonNullElse(existing, List.of());
-        Map<String, ContactExistingResponseDto> existingCodes = existing.stream()
-                .filter(contact -> StringUtils.hasText(contact.getContactCode()))
-                .collect(Collectors.toMap(contact -> contact.getContactCode().trim().toLowerCase(Locale.ROOT), contact -> contact, (a, b) -> a));
+        Map<String, ContactExistingResponseDto> existingCodes = existing.stream().filter(contact -> StringUtils.hasText(contact.getContactCode())).collect(Collectors.toMap(contact -> contact.getContactCode().trim().toLowerCase(Locale.ROOT), contact -> contact, (a, b) -> a));
         Map<String, ContactExistingResponseDto> existingMobiles = existing.stream().filter(contact -> StringUtils.hasText(contact.getMobile())).collect(Collectors.toMap(ContactExistingResponseDto::getMobile, contact -> contact, (a, b) -> a));
         Map<String, ContactExistingResponseDto> existingEmails = existing.stream().filter(contact -> StringUtils.hasText(contact.getEmail())).collect(Collectors.toMap(contact -> contact.getEmail().toLowerCase(Locale.ROOT), contact -> contact, (a, b) -> a));
         Set<String> seenMobiles = new HashSet<>();
@@ -246,8 +244,8 @@ public class ExcelComponent {
     }
 
     private static boolean listsDiffer(List<String> first, List<String> second) {
-        List<String> left = (first == null ? List.<String>of() : first).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).sorted().toList();
-        List<String> right = (second == null ? List.<String>of() : second).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).sorted().toList();
+        List<String> left = (Objects.isNull(first) ? List.<String>of() : first).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).sorted().toList();
+        List<String> right = (Objects.isNull(second) ? List.<String>of() : second).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).sorted().toList();
         return !left.equals(right);
     }
 
@@ -365,24 +363,19 @@ public class ExcelComponent {
         return data;
     }
 
-    public record ImportBatch(int totalCount, List<ExcelRow> allRows, List<ContactRequestDto> requests, List<ExcelRow> savableRows,
-                              List<Map<String, Object>> duplicates, List<Map<String, Object>> invalid) {
+    public record ImportBatch(int totalCount, List<ExcelRow> allRows, List<ContactRequestDto> requests,
+                              List<ExcelRow> savableRows, List<Map<String, Object>> duplicates,
+                              List<Map<String, Object>> invalid) {
     }
 
-    public static byte[] exportImportResult(
-            ImportBatch batch,
-            List<Map<String, Object>> saved,
-            List<Map<String, Object>> duplicates,
-            List<Map<String, Object>> invalid
-    ) throws Exception {
+    public static byte[] exportImportResult(ImportBatch batch, List<Map<String, Object>> saved, List<Map<String, Object>> duplicates, List<Map<String, Object>> invalid) throws Exception {
         String[] headers = Arrays.copyOf(ExcelHeader.HEADERS, ExcelHeader.HEADERS.length + 4);
         headers[ExcelHeader.HEADERS.length] = "Upload Status";
         headers[ExcelHeader.HEADERS.length + 1] = "Action";
         headers[ExcelHeader.HEADERS.length + 2] = "Remark";
         headers[ExcelHeader.HEADERS.length + 3] = "Changed Fields";
-
         Map<Integer, Map<String, Object>> resultByRow = new LinkedHashMap<>();
-        for (Map<String, Object> row : saved == null ? Collections.<Map<String, Object>>emptyList() : saved) {
+        for (Map<String, Object> row : Objects.isNull(saved) ? Collections.<Map<String, Object>>emptyList() : saved) {
             Object indexValue = row.get("index");
             if (!(indexValue instanceof Number number)) continue;
             int requestIndex = number.intValue() - 1;
@@ -395,7 +388,7 @@ public class ExcelComponent {
             copy.put("changedFields", source.changedFields().isEmpty() ? "" : String.join(", ", source.changedFields()));
             resultByRow.put(source.number(), copy);
         }
-        for (Map<String, Object> row : duplicates == null ? Collections.<Map<String, Object>>emptyList() : duplicates) {
+        for (Map<String, Object> row : Objects.isNull(duplicates) ? Collections.<Map<String, Object>>emptyList() : duplicates) {
             int rowNumber = number(row.get("rowNumber"));
             Map<String, Object> copy = new LinkedHashMap<>(row);
             copy.put("uploadStatus", "FAILED");
@@ -403,7 +396,7 @@ public class ExcelComponent {
             copy.put("remark", Objects.toString(row.get("message"), "Duplicate data"));
             resultByRow.put(rowNumber, copy);
         }
-        for (Map<String, Object> row : invalid == null ? Collections.<Map<String, Object>>emptyList() : invalid) {
+        for (Map<String, Object> row : Objects.isNull(invalid) ? Collections.<Map<String, Object>>emptyList() : invalid) {
             int rowNumber = number(row.get("rowNumber"));
             Map<String, Object> copy = new LinkedHashMap<>(row);
             copy.put("uploadStatus", "FAILED");
@@ -411,7 +404,6 @@ public class ExcelComponent {
             copy.put("remark", Objects.toString(row.get("message"), "Invalid data"));
             resultByRow.put(rowNumber, copy);
         }
-
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Import Result");
             writeContactHeaders(workbook, sheet, headers);
@@ -419,20 +411,7 @@ public class ExcelComponent {
             for (ExcelRow source : batch.allRows()) {
                 ContactRequestDto request = source.request();
                 Map<String, Object> result = resultByRow.getOrDefault(source.number(), Map.of());
-                Object[] values = {
-                        Objects.toString(result.get("contactCode"), request.getContactCode()),
-                        request.getContactType(), request.getName(), request.getCommunicationName(), request.getDepartment(),
-                        request.getDesignation(), request.getCompanyName(), request.getMobile(), request.getAlternateMobile(),
-                        request.getOfficeNumber(), request.getEmail(), request.getAlternateEmail(), request.getEmployeeId(),
-                        request.getGender(), request.getMaritalStatus(), request.getDateOfBirth(), request.getAnniversaryDate(),
-                        request.getBloodGroup(), request.getCountry(), request.getState(), request.getCity(), request.getAddress(),
-                        request.getPinCode(), request.getSkills(), request.getLanguages(), request.getEmergencyContactName(),
-                        request.getEmergencyContactNumber(), request.getRemarks(), request.isStatus() ? "Inactive" : "Active",
-                        Objects.toString(result.get("uploadStatus"), "FAILED"),
-                        Objects.toString(result.get("action"), StringUtils.hasText(source.error()) ? "INVALID" : "NOT SAVED"),
-                        Objects.toString(result.get("remark"), Objects.toString(source.error(), "Not saved")),
-                        Objects.toString(result.get("changedFields"), source.changedFields().isEmpty() ? "" : String.join(", ", source.changedFields()))
-                };
+                Object[] values = {Objects.toString(result.get("contactCode"), request.getContactCode()), request.getContactType(), request.getName(), request.getCommunicationName(), request.getDepartment(), request.getDesignation(), request.getCompanyName(), request.getMobile(), request.getAlternateMobile(), request.getOfficeNumber(), request.getEmail(), request.getAlternateEmail(), request.getEmployeeId(), request.getGender(), request.getMaritalStatus(), request.getDateOfBirth(), request.getAnniversaryDate(), request.getBloodGroup(), request.getCountry(), request.getState(), request.getCity(), request.getAddress(), request.getPinCode(), request.getSkills(), request.getLanguages(), request.getEmergencyContactName(), request.getEmergencyContactNumber(), request.getRemarks(), request.isStatus() ? "Inactive" : "Active", Objects.toString(result.get("uploadStatus"), "FAILED"), Objects.toString(result.get("action"), StringUtils.hasText(source.error()) ? "INVALID" : "NOT SAVED"), Objects.toString(result.get("remark"), Objects.toString(source.error(), "Not saved")), Objects.toString(result.get("changedFields"), source.changedFields().isEmpty() ? "" : String.join(", ", source.changedFields()))};
                 Row excelRow = sheet.createRow(rowIndex++);
                 for (int column = 0; column < values.length; column++) {
                     excelRow.createCell(column).setCellValue(cellText(values[column]));
@@ -451,8 +430,11 @@ public class ExcelComponent {
 
     private static int number(Object value) {
         if (value instanceof Number n) return n.intValue();
-        try { return Integer.parseInt(Objects.toString(value, "0")); }
-        catch (Exception ignored) { return 0; }
+        try {
+            return Integer.parseInt(Objects.toString(value, "0"));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     public static byte[] exportSaved(List<ExcelRow> rows, List<Map<String, Object>> saved) throws Exception {
@@ -581,15 +563,9 @@ public class ExcelComponent {
 
     private static String cellText(Object value) {
         if (Objects.isNull(value)) return "N/A";
-        if (value instanceof LocalDate date)
-            return date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+        if (value instanceof LocalDate date) return date.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
         if (value instanceof Collection<?> collection) {
-            String text = collection.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::valueOf)
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .collect(Collectors.joining(", "));
+            String text = collection.stream().filter(Objects::nonNull).map(String::valueOf).map(String::trim).filter(StringUtils::hasText).collect(Collectors.joining(", "));
             return StringUtils.hasText(text) ? text : "N/A";
         }
         String text = String.valueOf(value).trim();

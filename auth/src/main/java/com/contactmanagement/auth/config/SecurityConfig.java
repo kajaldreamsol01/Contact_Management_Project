@@ -2,9 +2,11 @@ package com.contactmanagement.auth.config;
 
 import com.contactmanagement.auth.service.RemoteUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.*;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -12,7 +14,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.server.resource.authentication.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.io.IOException;
@@ -26,9 +29,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    DaoAuthenticationProvider authenticationProvider(RemoteUserDetailsService users, PasswordEncoder encoder) {
-        var provider = new DaoAuthenticationProvider(users);
-        provider.setPasswordEncoder(encoder);
+    DaoAuthenticationProvider authenticationProvider(RemoteUserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+        var provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
@@ -49,7 +52,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtConverter) throws Exception {
-        return http.csrf(AbstractHttpConfigurer::disable).sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(a -> a.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll().requestMatchers("/auth/login").permitAll().anyRequest().authenticated()).oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtConverter))).exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> error(res, 401, "Authentication required")).accessDeniedHandler((req, res, ex) -> error(res, 403, "You are not authorized to perform this action"))).build();
+        return http.csrf(AbstractHttpConfigurer::disable).sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(authorizeRequests -> authorizeRequests.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll().requestMatchers("/auth/login").permitAll().anyRequest().authenticated()).oauth2ResourceServer(oauthResourceServer -> oauthResourceServer.jwt(jwtConfigurer -> jwtConfigurer.jwtAuthenticationConverter(jwtConverter))).exceptionHandling(exceptionHandling -> exceptionHandling.authenticationEntryPoint((request, response, exception) -> error(response, 401, "Authentication required")).accessDeniedHandler((request, response, exception) -> error(response, 403, "You are not authorized to perform this action"))).build();
     }
 
     private void error(HttpServletResponse response, int status, String message) throws IOException {

@@ -1,12 +1,16 @@
 package com.contactmanagement.common.component.validation;
 
 import com.contactmanagement.common.response.ApiResponse;
-import jakarta.validation.*;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -15,11 +19,11 @@ public class ValidationComponent {
 
     public <T> ApiResponse<Map<String, Object>> validate(List<T> requests) {
         List<Map<String, Object>> errors = new ArrayList<>();
-        if (requests == null || requests.isEmpty()) return result("FAILED", "Contact data is required", errors);
-        for (int i = 0; i < requests.size(); i++) {
-            T request = requests.get(i);
-            String message = request == null ? "Invalid contact data" : validator.validate(request).stream().map(ConstraintViolation::getMessage).distinct().collect(Collectors.joining(", "));
-            if (!message.isBlank()) errors.add(Map.of("index", i + 1, "message", message));
+        if (Objects.isNull(requests) || requests.isEmpty()) return result("FAILED", "Contact data is required", errors);
+        for (int index = 0; index < requests.size(); index++) {
+            T request = requests.get(index);
+            String message = Objects.isNull(request) ? "Invalid contact data" : validator.validate(request).stream().map(ConstraintViolation::getMessage).distinct().collect(Collectors.joining(", "));
+            if (!message.isBlank()) errors.add(Map.of("index", index + 1, "message", message));
         }
         return result("SUCCESS", errors.isEmpty() ? "Contact validation passed" : "Contact validation failed", errors);
     }

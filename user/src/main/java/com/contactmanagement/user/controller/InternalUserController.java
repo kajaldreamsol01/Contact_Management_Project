@@ -4,7 +4,10 @@ import com.contactmanagement.common.dto.UserAuthResponseDto;
 import com.contactmanagement.common.response.ApiResponse;
 import com.contactmanagement.user.service.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("internal/users")
