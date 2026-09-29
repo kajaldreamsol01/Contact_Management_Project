@@ -2,6 +2,7 @@ package com.contactmanagement.controller;
 
 import com.contactmanagement.common.dto.ContactDataDto;
 import com.contactmanagement.common.response.ApiResponse;
+import com.contactmanagement.dto.ContactSearchRequestDto;
 import com.contactmanagement.dto.ExcelDownloadApprovalRequestDto;
 import com.contactmanagement.processor.ExcelProcessor;
 import com.contactmanagement.security.SecurityUtil;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,6 +49,12 @@ public class ExcelController {
     @PostMapping("export")
     public ResponseEntity<byte[]> export(@RequestBody List<ContactDataDto> contacts) {
         return processor.export(contacts);
+    }
+
+    @PreAuthorize("@securityUtil.hasAuthority('admin')")
+    @GetMapping("download")
+    public ResponseEntity<byte[]> download(@ModelAttribute ContactSearchRequestDto request) {
+        return processor.export(contactService.findForExport(request));
     }
 
     @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')or @securityUtil.hasAuthority('management')or @securityUtil.hasAuthority('user')")

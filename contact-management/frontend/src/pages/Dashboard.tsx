@@ -37,13 +37,11 @@ import {
   getContactAnalytics,
   getStatusCount,
   filterContactPage,
-  getContactHistory,
   type ContactAnalytics,
-  type ContactHistoryItem,
   type ContactListItem,
   type ContactSearchParams,
 } from "./app/components/contact-master/apis";
-import { getDashboardTableConfigs, type DashboardTableConfigMap, type ReactTableColumnConfig } from "./app/components/contact-master/tableConfig";
+import { getReactTableConfig, type ReactTableColumnConfig } from "./app/components/contact-master/tableConfig";
 
 declare global {
   interface Window {
@@ -100,15 +98,6 @@ const formatDateTime = (value?: string | null) => {
   const min = String(date.getMinutes()).padStart(2, "0");
   const sec = String(date.getSeconds()).padStart(2, "0");
   return `${dd}/${mm}/${yy} ${hh}:${min}:${sec}`;
-};
-
-const dashboardCellValue = (value: unknown) => {
-  if (Array.isArray(value)) {
-    const values = value.map((item) => String(item ?? "").trim()).filter(Boolean);
-    return values.length ? values.join(", ") : "N/A";
-  }
-  const text = String(value ?? "").trim();
-  return text || "N/A";
 };
 
 const loadScript = (src: string) =>
@@ -176,6 +165,26 @@ type SummaryRow = Record<string, string | number>;
 
 type SummaryCell = MRT_ColumnDef<SummaryRow>["Cell"];
 
+function useBackendTableConfig(table: string) {
+  const [config, setConfig] = useState<ReactTableColumnConfig[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getReactTableConfig(table)
+      .then((columns) => {
+        if (active) setConfig(columns);
+      })
+      .catch(() => {
+        if (active) setConfig([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [table]);
+
+  return config;
+}
+
 const summaryColumns = (
   config: ReactTableColumnConfig[],
   cells: Record<string, SummaryCell> = {},
@@ -186,7 +195,7 @@ const summaryColumns = (
     header: item.header,
     size: item.size,
     enableSorting: item.sortable ?? false,
-    Cell: cells[item.key] ?? (({ cell }) => dashboardCellValue(cell.getValue())),
+    ...(cells[item.key] ? { Cell: cells[item.key] } : {}),
   }));
 
 function SummaryTable({
@@ -298,12 +307,10 @@ function AnalyticsCard({
 function DetailTableDialog({
   selection,
   dateRange,
-  tableConfigs,
   onClose,
 }: {
   selection: DetailSelection | null;
   dateRange: DateRange;
-  tableConfigs: DashboardTableConfigMap;
   onClose: () => void;
 }) {
   const [data, setData] = useState<ContactListItem[]>([]);
@@ -315,25 +322,8 @@ function DetailTableDialog({
     pageSize: 5,
   });
   const [sorting, setSorting] = useState<MRT_SortingState>([]);
-  const tableConfig = tableConfigs.DASHBOARD_DETAIL ?? [];
+  const tableConfig = useBackendTableConfig("DASHBOARD_DETAIL");
   const [historyContact, setHistoryContact] = useState<{ id: number; contactCode: string } | null>(null);
-  const [historyItems, setHistoryItems] = useState<ContactHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState("");
-
-  const openHistory = useCallback(async (contact: { id: number; contactCode: string }) => {
-    setHistoryContact(contact);
-    setHistoryLoading(true);
-    setHistoryError("");
-    try {
-      setHistoryItems(await getContactHistory(contact.id));
-    } catch (exception) {
-      setHistoryItems([]);
-      setHistoryError(exception instanceof Error ? exception.message : "Unable to load contact history");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
 
   const selectionKey = useMemo(
     () => selection ? JSON.stringify({ filters: selection.filters, allTime: selection.allTime }) : "",
@@ -341,35 +331,24 @@ function DetailTableDialog({
   );
 
 
-  const filterRequestRef = useRef<{ key: string; promise: ReturnType<typeof filterContactPage> } | null>(null);
-
   useEffect(() => {
     if (!selection) return;
 
     let cancelled = false;
     const sort = sorting[0];
-    const params = {
+
+    setLoading(true);
+    setError("");
+
+    filterContactPage({
       ...selection.filters,
       fromDate: selection.allTime ? undefined : dateRange.fromDate,
       toDate: selection.allTime ? undefined : dateRange.toDate,
       page: pagination.pageIndex,
       size: pagination.pageSize,
       sort: sort?.id || "id",
-      direction: (sort?.desc === false ? "asc" : "desc") as "asc" | "desc",
-    };
-    const requestKey = JSON.stringify(params);
-
-    setLoading(true);
-    setError("");
-
-    const promise =
-      filterRequestRef.current?.key === requestKey
-        ? filterRequestRef.current.promise
-        : filterContactPage(params);
-
-    filterRequestRef.current = { key: requestKey, promise };
-
-    promise
+      direction: sort?.desc === false ? "asc" : "desc",
+    })
       .then((page) => {
         if (cancelled) return;
         setData(page.content);
@@ -409,7 +388,6 @@ function DetailTableDialog({
           header: item.header,
           size: item.size,
           enableSorting: item.sortable ?? false,
-          Cell: ({ cell }) => dashboardCellValue(cell.getValue()),
         };
 
         if (item.key === "contactCode") {
@@ -424,7 +402,7 @@ function DetailTableDialog({
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  void openHistory({ id: Number(row.original.id), contactCode: String(code) });
+                  setHistoryContact({ id: Number(row.original.id), contactCode: String(code) });
                 }}
                 sx={{ p: 0, minWidth: 0, color: "#1976d2", fontSize: 12.5, fontWeight: 800, lineHeight: 1.25, textDecoration: "underline", textUnderlineOffset: "2px", cursor: "pointer", borderRadius: 0.5, "&:hover": { color: "#0d47a1", bgcolor: "#eff6ff", textDecoration: "underline" } }}
               >
@@ -515,11 +493,8 @@ function DetailTableDialog({
 
     <ContactHistoryDialog
       open={Boolean(historyContact)}
+      contactId={historyContact?.id ?? null}
       contactCode={historyContact?.contactCode ?? ""}
-      items={historyItems}
-      tableConfig={tableConfigs.CONTACT_HISTORY ?? []}
-      loading={historyLoading}
-      error={historyError}
       onClose={() => setHistoryContact(null)}
     />
     </>
@@ -528,11 +503,9 @@ function DetailTableDialog({
 
 function AmChartsPanel({
   data,
-  tableConfigs,
   onOpenDetails,
 }: {
   data: ContactAnalytics;
-  tableConfigs: DashboardTableConfigMap;
   onOpenDetails: (selection: DetailSelection) => void;
 }) {
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -544,9 +517,9 @@ function AmChartsPanel({
     active: "graph",
     stacked: "graph",
   });
-  const contactTypeColumns = tableConfigs.DASHBOARD_CONTACT_TYPE ?? [];
-  const statusColumns = tableConfigs.DASHBOARD_STATUS ?? [];
-  const stackedColumns = tableConfigs.DASHBOARD_CONTACT_TYPE_STATUS ?? [];
+  const contactTypeColumns = useBackendTableConfig("DASHBOARD_CONTACT_TYPE");
+  const statusColumns = useBackendTableConfig("DASHBOARD_STATUS");
+  const stackedColumns = useBackendTableConfig("DASHBOARD_CONTACT_TYPE_STATUS");
 
   const contactTypes = useMemo(
     () =>
@@ -785,11 +758,9 @@ function AmChartsPanel({
 
 function ReactChartPanel({
   data,
-  tableConfigs,
   onOpenDetails,
 }: {
   data: ContactAnalytics;
-  tableConfigs: DashboardTableConfigMap;
   onOpenDetails: (selection: DetailSelection) => void;
 }) {
   const mixedRef = useRef<HTMLCanvasElement | null>(null);
@@ -801,9 +772,9 @@ function ReactChartPanel({
     types: "graph",
     status: "graph",
   });
-  const trendColumns = tableConfigs.DASHBOARD_CONTACT_TYPE_TREND ?? [];
-  const cityColumns = tableConfigs.DASHBOARD_CITY ?? [];
-  const statusColumns = tableConfigs.DASHBOARD_STATUS ?? [];
+  const trendColumns = useBackendTableConfig("DASHBOARD_CONTACT_TYPE_TREND");
+  const cityColumns = useBackendTableConfig("DASHBOARD_CITY");
+  const statusColumns = useBackendTableConfig("DASHBOARD_STATUS");
 
   const contactTypes = useMemo(
     () =>
@@ -1152,13 +1123,10 @@ function Dashboard() {
   const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange);
   const [data, setData] = useState<ContactAnalytics | null>(null);
   const [counts, setCounts] = useState({ total: 0, active: 0, inactive: 0 });
-  const [tableConfigs, setTableConfigs] = useState<DashboardTableConfigMap>({});
   const [detailSelection, setDetailSelection] = useState<DetailSelection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const analyticsRequestKey = useRef("");
-  const countsLoaded = useRef(false);
-  const tableConfigsLoaded = useRef(false);
   const today = useMemo(() => formatDate(new Date()), []);
 
   const loadAnalytics = useCallback((force = false) => {
@@ -1186,38 +1154,23 @@ function Dashboard() {
       .finally(() => setLoading(false));
   }, [appliedRange.fromDate, appliedRange.toDate]);
 
-  const loadCounts = useCallback(async (force = false) => {
-    if (!force && countsLoaded.current) return;
-    countsLoaded.current = true;
+  const loadCounts = useCallback(async () => {
     try {
       const result = await getStatusCount();
       setCounts({ total: result.active + result.inactive, active: result.active, inactive: result.inactive });
     } catch {
-      countsLoaded.current = false;
       setCounts({ total: 0, active: 0, inactive: 0 });
-    }
-  }, []);
-
-  const loadTableConfigs = useCallback(async () => {
-    if (tableConfigsLoaded.current) return;
-    tableConfigsLoaded.current = true;
-    try {
-      setTableConfigs(await getDashboardTableConfigs());
-    } catch {
-      tableConfigsLoaded.current = false;
-      setTableConfigs({});
     }
   }, []);
 
   useEffect(() => {
 
     void loadAnalytics(false);
-    void loadCounts(false);
-    void loadTableConfigs();
+    void loadCounts();
 
     const refresh = () => {
       void loadAnalytics(true);
-      void loadCounts(true);
+      void loadCounts();
     };
 
     window.addEventListener("contact-analytics-updated", refresh);
@@ -1225,7 +1178,7 @@ function Dashboard() {
     return () => {
       window.removeEventListener("contact-analytics-updated", refresh);
     };
-  }, [loadAnalytics, loadCounts, loadTableConfigs]);
+  }, [loadAnalytics, loadCounts]);
 
   const stats = useMemo(() => [
     { label:"Total Contacts",value:counts.total,icon:<GroupsOutlinedIcon />,color:UI_PRIMARY,darkColor:UI_PRIMARY_DARK,lightColor:UI_PRIMARY_LIGHT,filters:{},allTime:true },
@@ -1402,11 +1355,11 @@ function Dashboard() {
       </Grid>
 
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12 }}><AmChartsPanel data={data} tableConfigs={tableConfigs} onOpenDetails={handleOpenDetails} /></Grid>
-        <Grid size={{ xs: 12 }}><ReactChartPanel data={data} tableConfigs={tableConfigs} onOpenDetails={handleOpenDetails} /></Grid>
+        <Grid size={{ xs: 12 }}><AmChartsPanel data={data} onOpenDetails={handleOpenDetails} /></Grid>
+        <Grid size={{ xs: 12 }}><ReactChartPanel data={data} onOpenDetails={handleOpenDetails} /></Grid>
       </Grid>
 
-      {detailSelection && <DetailTableDialog selection={detailSelection} dateRange={appliedRange} tableConfigs={tableConfigs} onClose={() => setDetailSelection(null)} />}
+      {detailSelection && <DetailTableDialog selection={detailSelection} dateRange={appliedRange} onClose={() => setDetailSelection(null)} />}
     </Box>
   );
 }

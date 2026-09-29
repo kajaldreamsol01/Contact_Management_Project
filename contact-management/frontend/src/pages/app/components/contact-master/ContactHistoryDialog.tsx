@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -16,15 +16,18 @@ import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import type { MRT_ColumnDef } from "material-react-table";
 import ReactTable from "../ReactTable";
 import {
+  getContactHistory,
+  getContactHistoryTableConfig,
   type ContactHistoryItem,
   type ContactTableColumnConfig,
 } from "./apis";
 
 type Props = {
   open: boolean;
+  contactId?: number | null;
   contactCode: string;
-  items: ContactHistoryItem[];
-  tableConfig: ContactTableColumnConfig[];
+  items?: ContactHistoryItem[];
+  tableConfig?: ContactTableColumnConfig[];
   loading?: boolean;
   error?: string;
   onClose: () => void;
@@ -76,6 +79,7 @@ const historyValue = (row: ContactHistoryItem, key: string) => {
 
 export default function ContactHistoryDialog({
   open,
+  contactId,
   contactCode,
   items,
   tableConfig,
@@ -83,9 +87,55 @@ export default function ContactHistoryDialog({
   error = "",
   onClose,
 }: Props) {
+  const [loadedItems, setLoadedItems] = useState<ContactHistoryItem[]>([]);
+  const [loadedConfig, setLoadedConfig] = useState<ContactTableColumnConfig[]>([]);
+  const [loadedLoading, setLoadedLoading] = useState(false);
+  const [loadedError, setLoadedError] = useState("");
+
+  useEffect(() => {
+    if (!open || !contactId || items) return;
+    let active = true;
+
+    setLoadedLoading(true);
+    setLoadedError("");
+
+    Promise.all([
+      getContactHistory(contactId),
+      loadedConfig.length
+        ? Promise.resolve(loadedConfig)
+        : getContactHistoryTableConfig(),
+    ])
+      .then(([history, config]) => {
+        if (!active) return;
+        setLoadedItems(history);
+        if (!loadedConfig.length) setLoadedConfig(config);
+      })
+      .catch((exception) => {
+        if (!active) return;
+        setLoadedItems([]);
+        setLoadedError(
+          exception instanceof Error
+            ? exception.message
+            : "Unable to load contact history",
+        );
+      })
+      .finally(() => {
+        if (active) setLoadedLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open, contactId, items, loadedConfig]);
+
+  const effectiveItems = items ?? loadedItems;
+  const effectiveConfig = tableConfig ?? loadedConfig;
+  const effectiveLoading = items ? loading : loadedLoading;
+  const effectiveError = items ? error : loadedError;
+
   const columns = useMemo<MRT_ColumnDef<ContactHistoryItem>[]>(
     () =>
-      tableConfig.map((config) => {
+      effectiveConfig.map((config) => {
         const base: MRT_ColumnDef<ContactHistoryItem> = {
           id: config.key,
           header: config.header,
@@ -242,7 +292,7 @@ export default function ContactHistoryDialog({
           },
         };
       }),
-    [tableConfig],
+    [effectiveConfig],
   );
 
   return (
@@ -283,17 +333,23 @@ export default function ContactHistoryDialog({
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 1.25, overflow: "hidden" }}>
-        {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
-        {!loading && !error && items.length === 0 && (
-          <Alert severity="info" sx={{ mb: 1 }}>
-            No history found for this contact.
+        {effectiveError && (
+          <Alert severity="error" sx={{ mb: 1 }}>
+            {effectiveError}
           </Alert>
         )}
+        {!effectiveLoading &&
+          !effectiveError &&
+          effectiveItems.length === 0 && (
+            <Alert severity="info" sx={{ mb: 1 }}>
+              No history found for this contact.
+            </Alert>
+          )}
         <ReactTable
           columns={columns}
-          data={items}
-          loading={loading}
-          rowCount={items.length}
+          data={effectiveItems}
+          loading={effectiveLoading}
+          rowCount={effectiveItems.length}
           maxHeight={470}
           defaultPageSize={10}
         />

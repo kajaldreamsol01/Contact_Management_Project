@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import { Box, InputAdornment, TextField } from '@mui/material'
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined'
-export const MAX_RANGE_DAYS = 7
 const parseApiDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number)
   return new Date(year, month - 1, day)
@@ -20,11 +19,8 @@ export const formatShortDate = (value?: string) => {
   const [year, month, day] = value.split('-')
   return `${day}-${month}-${year.slice(-2)}`
 }
-export const isValidDateRange = (fromDate: string, toDate: string) => {
-  if (!fromDate || !toDate || fromDate > toDate)
-    return false
-  return toDate <= addDays(fromDate, MAX_RANGE_DAYS - 1)
-}
+export const isValidDateRange = (fromDate: string, toDate: string) =>
+  Boolean(fromDate && toDate && fromDate <= toDate)
 type Props = {
   label: string
   value: string
@@ -55,16 +51,11 @@ function DateRangeField({ label, value, min, max, onChange, sx }: Props) {
       input: {
         endAdornment: (
           <InputAdornment position='end'>
-            <CalendarMonthOutlinedIcon sx={{ fontSize: 20, color: '#1f2937', cursor: 'pointer' }} />
+            <CalendarMonthOutlinedIcon sx={{ fontSize: 20, color: '#000', cursor: 'pointer' }} />
           </InputAdornment>
         ),
       },
-    }} sx={{
-      ...sx,
-      '& .MuiOutlinedInput-root': { minHeight: 40, height: 40, borderRadius: '7px', bgcolor: '#fff' },
-      '& .MuiInputBase-input': { fontSize: 13, cursor: 'pointer' },
-      '& .MuiInputLabel-root': { fontSize: 13 },
-    }} />
+    }} sx={sx} />
     <input ref={pickerRef} type='date' value={value} min={min} max={max} onChange={(event) => onChange(event.target.value)} tabIndex={-1} aria-hidden='true' style={{
       position: 'absolute',
       width: 1,

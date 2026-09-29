@@ -8,7 +8,7 @@ import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined'
 import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined'
-import DateRangeField, { addDays, formatShortDate, isValidDateRange, } from '../DateRangeField'
+import DateRangeField, { formatShortDate, } from '../DateRangeField'
 import type { AppliedFilter, ContactDropdownData, ContactFilters, } from './apis'
 const toApiDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const getToday = () => toApiDate(new Date())
@@ -131,15 +131,16 @@ function ContactActivityFilter({ value, dropdowns, searching = false, total, act
     onReset(getDefaultContactFilters())
   }
   const handleFromDate = (next: string) => {
-    if (!next || next > today) return
+    if (!next || next > today)
+      return
+    if (value.toDate && next > value.toDate)
+      return
     onChange('fromDate', next)
   }
   const handleToDate = (next: string) => {
     if (!value.fromDate || !next)
       return
     if (next > today || next < value.fromDate)
-      return
-    if (!isValidDateRange(value.fromDate, next))
       return
     onChange('toDate', next)
   }
@@ -179,13 +180,11 @@ function ContactActivityFilter({ value, dropdowns, searching = false, total, act
         {/* Date */}
         <Grid container spacing={1} sx={{ mt: 1.25 }}>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <DateRangeField label='From Date' value={value.fromDate} max={today} onChange={handleFromDate} sx={fieldSx} />
+            <DateRangeField label='From Date' value={value.fromDate} max={value.toDate && value.toDate < today ? value.toDate : today} onChange={handleFromDate} sx={fieldSx} />
           </Grid>
 
           <Grid size={{ xs: 12, sm: 6 }}>
-            <DateRangeField label='To Date' value={value.toDate} min={value.fromDate || undefined} max={value.fromDate && addDays(value.fromDate, 6) < today
-              ? addDays(value.fromDate, 6)
-              : today} onChange={handleToDate} sx={fieldSx} />
+            <DateRangeField label='To Date' value={value.toDate} min={value.fromDate || undefined} max={today} onChange={handleToDate} sx={fieldSx} />
           </Grid>
         </Grid>
 

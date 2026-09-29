@@ -78,7 +78,6 @@ function DashboardLayout() {
           : item))
         setUnreadCount(nextUnreadCount)
         localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
-        await loadNotifications(false, notificationPage, notificationSize)
       }
       catch {
       }
@@ -142,7 +141,6 @@ function DashboardLayout() {
     setNotificationToast((current) => current?.id === notification.id ? null : current)
     setUnreadCount(nextUnreadCount)
     localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
-    await loadNotifications(false, notificationPage, notificationSize)
   }
   const handleDeleteNotification = async (notification: AppNotification) => {
     const nextUnreadCount = await deleteNotification(notification.id)
@@ -152,7 +150,6 @@ function DashboardLayout() {
     localStorage.setItem('notificationUnreadCount', String(nextUnreadCount))
     setSelectedNotification(null)
     setNotificationToast((current) => current?.id === notification.id ? null : current)
-    await loadNotifications(false, notificationPage, notificationSize)
   }
   const handleApprovalDecision = async (decision: 'approve' | 'reject') => {
     const requestId = selectedNotification?.actionRequestId

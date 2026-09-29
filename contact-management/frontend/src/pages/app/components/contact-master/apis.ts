@@ -1263,14 +1263,6 @@ export const requestContactsExcelDownload = async (
     new Event('notification-updated'),
   )
 
-  window.setTimeout(
-    () =>
-      window.dispatchEvent(
-        new Event('notification-updated'),
-      ),
-    1800,
-  )
-
   return {
     message:
       result.message ||
@@ -1332,79 +1324,110 @@ export const getContactHistory = async (
     `${API}/history/${contactId}`,
   )
 
-  const result = ensureSuccess<any>(
-    response.data,
-    'Unable to load contact history',
-  )
+  const payload = response.data
 
-  return Array.isArray(result.data)
-    ? result.data
+  if (
+    String(payload?.status || '').toUpperCase() !==
+    'SUCCESS'
+  ) {
+    throw new Error(
+      payload?.error ||
+      payload?.message ||
+      'Unable to load contact history',
+    )
+  }
+
+  return Array.isArray(payload?.data)
+    ? payload.data
     : []
 }
+
+let contactHistoryTableConfigCache: ContactTableColumnConfig[] | null = null
+let contactHistoryTableConfigPromise: Promise<ContactTableColumnConfig[]> | null = null
 
 export const getContactHistoryTableConfig = async (): Promise<
   ContactTableColumnConfig[]
 > => {
-  const response = await axios.get(
-    `${API}/history-config`,
-  )
+  if (contactHistoryTableConfigCache) {
+    return contactHistoryTableConfigCache
+  }
 
-  const result = ensureSuccess<any>(
-    response.data,
-    'Unable to load history table config',
-  )
+  if (contactHistoryTableConfigPromise) {
+    return contactHistoryTableConfigPromise
+  }
 
-  const rows = Array.isArray(result.data)
-    ? result.data
-    : []
-
-  return rows
-    .map((item: any, index: number) => ({
-      key: String(
-        item?.key ?? '',
-      ).trim(),
-
-      header: String(
-        item?.header ?? '',
-      ).trim(),
-
-      visible:
-        item?.visible ??
-        true,
-
-      order: Number(
-        item?.order ??
-        index,
-      ),
-
-      size:
-        Number(
-          item?.size ??
-          0,
-        ) || undefined,
-
-      sortable:
-        item?.sortable ??
-        false,
-
-      renderer:
-        String(
-          item?.renderer ?? '',
-        ).trim() || undefined,
-    }))
-    .filter(
-      (item: ContactTableColumnConfig) =>
-        item.key &&
-        item.visible !== false,
+  contactHistoryTableConfigPromise = (async () => {
+    const response = await axios.get(
+      `${API}/history-config`,
     )
-    .sort(
-      (
-        first: ContactTableColumnConfig,
-        second: ContactTableColumnConfig,
-      ) =>
-        Number(first.order ?? 0) -
-        Number(second.order ?? 0),
+
+    const result = ensureSuccess<any>(
+      response.data,
+      'Unable to load history table config',
     )
+
+    const rows = Array.isArray(result.data)
+      ? result.data
+      : []
+
+    const config = rows
+      .map((item: any, index: number) => ({
+        key: String(
+          item?.key ?? '',
+        ).trim(),
+
+        header: String(
+          item?.header ?? '',
+        ).trim(),
+
+        visible:
+          item?.visible ??
+          true,
+
+        order: Number(
+          item?.order ??
+          index,
+        ),
+
+        size:
+          Number(
+            item?.size ??
+            0,
+          ) || undefined,
+
+        sortable:
+          item?.sortable ??
+          false,
+
+        renderer:
+          String(
+            item?.renderer ?? '',
+          ).trim() || undefined,
+      }))
+      .filter(
+        (item: ContactTableColumnConfig) =>
+          item.key &&
+          item.visible !== false,
+      )
+      .sort(
+        (
+          first: ContactTableColumnConfig,
+          second: ContactTableColumnConfig,
+        ) =>
+          Number(first.order ?? 0) -
+          Number(second.order ?? 0),
+      )
+
+    contactHistoryTableConfigCache = config
+    return config
+  })()
+
+  try {
+    return await contactHistoryTableConfigPromise
+  }
+  finally {
+    contactHistoryTableConfigPromise = null
+  }
 }
 
 export const getNotifications = async (
