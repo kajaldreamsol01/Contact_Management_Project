@@ -13,7 +13,7 @@ import com.contactmanagement.dto.ContactAnalyticsResponseDto;
 import com.contactmanagement.dto.ContactFileResponseDto;
 import com.contactmanagement.dto.ContactHistoryResponseDto;
 import com.contactmanagement.dto.ContactListResponseDto;
-import com.contactmanagement.dto.ContactRequestDto;
+import com.contactmanagement.common.dto.ContactRequestDto;
 import com.contactmanagement.dto.ContactResponseDto;
 import com.contactmanagement.dto.ContactSearchRequestDto;
 import com.contactmanagement.entity.Contact;

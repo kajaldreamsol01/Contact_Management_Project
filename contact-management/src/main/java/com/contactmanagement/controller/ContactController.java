@@ -8,7 +8,8 @@ import com.contactmanagement.dto.ContactAnalyticsResponseDto;
 import com.contactmanagement.dto.ContactFileResponseDto;
 import com.contactmanagement.dto.ContactHistoryResponseDto;
 import com.contactmanagement.dto.ContactListResponseDto;
-import com.contactmanagement.dto.ContactRequestDto;
+import com.contactmanagement.common.dto.ContactRequestDto;
+import jakarta.validation.Valid;
 import com.contactmanagement.dto.ContactResponseDto;
 import com.contactmanagement.dto.ContactSearchRequestDto;
 import com.contactmanagement.processor.ContactFileProcessor;
@@ -43,7 +44,8 @@ public class ContactController {
 
     @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('management')")
     @PostMapping("save")
-    public ApiResponse<Map<String, Object>> save(@RequestBody List<ContactRequestDto> requests) {
+    public ApiResponse<Map<String, Object>> save(
+            @Valid @RequestBody List<@Valid ContactRequestDto> requests) {
         return service.save(requests, "FORM");
     }
 

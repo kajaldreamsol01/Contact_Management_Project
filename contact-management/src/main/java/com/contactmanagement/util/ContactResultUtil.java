@@ -1,6 +1,6 @@
 package com.contactmanagement.util;
 
-import com.contactmanagement.dto.ContactRequestDto;
+import com.contactmanagement.common.dto.ContactRequestDto;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
