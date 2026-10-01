@@ -15,7 +15,8 @@ spring:
               '[/**]':
                 allowedOrigins:
                   - "http://localhost:5173"
-                  - "http://127.0.0.1:5173"`r`n                  - "https://contact-management-project-phi.vercel.app"
+                  - "http://127.0.0.1:5173"
+                  - "https://contact-management-project-phi.vercel.app"
                 allowedMethods:
                   - GET
                   - POST
@@ -78,4 +79,5 @@ logging:
     org.springframework.cloud.gateway: INFO
     org.springframework.cloud.loadbalancer: INFO
     org.springframework.security: INFO
+
 
