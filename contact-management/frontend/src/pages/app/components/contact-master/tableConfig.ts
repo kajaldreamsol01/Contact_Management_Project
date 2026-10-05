@@ -133,3 +133,4 @@ export const getDashboardTableConfigs = async (): Promise<DashboardTableConfigMa
 
   return dashboardTableConfigPromise
 }
+
