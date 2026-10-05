@@ -90,37 +90,9 @@ public class ExcelProcessor {
 
     public ResponseEntity<byte[]> format() {
         try {
-            Map<String, Object> sampleData = new LinkedHashMap<>();
-            sampleData.put("contactCode", "CNT0001");
-            sampleData.put("contactType", "Customer");
-            sampleData.put("name", "Example User");
-            sampleData.put("communicationName", "Example");
-            sampleData.put("department", "Sales");
-            sampleData.put("designation", "Manager");
-            sampleData.put("companyName", "Example Pvt Ltd");
-            sampleData.put("mobile", "9876543210");
-            sampleData.put("alternateMobile", "9876501234");
-            sampleData.put("officeNumber", "01123456789");
-            sampleData.put("email", "example@example.com");
-            sampleData.put("alternateEmail", "example.alt@example.com");
-            sampleData.put("employeeId", "EMP001");
-            sampleData.put("gender", "Male");
-            sampleData.put("maritalStatus", "Married");
-            sampleData.put("dateOfBirth", "1990-01-15");
-            sampleData.put("anniversaryDate", "2018-02-20");
-            sampleData.put("bloodGroup", "O+");
-            sampleData.put("country", "India");
-            sampleData.put("state", "Uttar Pradesh");
-            sampleData.put("city", "Ghaziabad");
-            sampleData.put("address", "Example Address");
-            sampleData.put("pinCode", "201001");
-            sampleData.put("skills", List.of("Communication", "Excel"));
-            sampleData.put("languages", List.of("Hindi", "English"));
-            sampleData.put("emergencyContactName", "Example Contact");
-            sampleData.put("emergencyContactNumber", "9876512345");
-            sampleData.put("remarks", "Example record - replace with actual data");
-            sampleData.put("status", false);
-            return excelDownloadComponent.download("Format.xlsx", ExcelComponent.export(List.of(objectMapper.convertValue(sampleData, ContactDataDto.class))));
+            // The import format only needs the standard contact headers.
+            // Keeping this template data-free avoids DTO conversion issues and makes generation faster.
+            return excelDownloadComponent.download("Contact_Import_Format.xlsx", ExcelComponent.export(List.of()));
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to download Excel format", exception);
         }

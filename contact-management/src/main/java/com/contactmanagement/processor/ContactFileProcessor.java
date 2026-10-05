@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,6 +43,7 @@ public class ContactFileProcessor {
     @Value("${contact.storage.directory}")
     private String storageDirectory;
 
+    @Transactional
     public ApiResponse<List<ContactFileResponseDto>> upload(List<MultipartFile> files, List<String> types) {
         if (CollectionUtils.isEmpty(files)) return ApiResponse.response("FAILED", "Please select at least one file");
         if (CollectionUtils.isEmpty(types) || files.size() != types.size())
@@ -81,6 +83,7 @@ public class ContactFileProcessor {
         }
     }
 
+    @Transactional
     public ApiResponse<Void> delete(String uuid) {
         if (!valid(uuid)) return ApiResponse.response("FAILED", "Invalid file UUID");
         FileMapping fileMapping = repository.findById(uuid).orElse(null);
@@ -88,7 +91,6 @@ public class ContactFileProcessor {
         try {
             for (Path filePath : paths(fileMapping).candidates()) Files.deleteIfExists(filePath);
             repository.delete(fileMapping);
-            repository.flush();
             return ApiResponse.response("SUCCESS", "File removed successfully");
         } catch (Exception exception) {
             return ApiResponse.response("FAILED", "Unable to remove file");
@@ -138,7 +140,7 @@ public class ContactFileProcessor {
             fileMapping.setFileName(fileName);
             fileMapping.setFilePath(filePath.toAbsolutePath().toString());
             fileMapping.setFileType(fileType);
-            repository.saveAndFlush(fileMapping);
+            repository.save(fileMapping);
             return new ContactFileResponseDto(uuid, fileName, fileType);
         } catch (Exception exception) {
             try {

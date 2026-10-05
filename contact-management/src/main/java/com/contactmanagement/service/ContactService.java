@@ -71,8 +71,15 @@ public class ContactService {
             if (validRequests.isEmpty()) return ApiResponse.response("FAILED", "Contact data is required");
             List<SaveRow> saveRows = validRequests.stream().map(this::prepare).toList();
             List<Contact> savedContacts = repository.saveAllAndFlush(saveRows.stream().map(SaveRow::contact).toList());
-            savedContacts.stream().filter(contact -> !StringUtils.hasText(contact.getContactCode())).forEach(contact -> contact.setContactCode("CNT%03d".formatted(contact.getId())));
-            savedContacts = repository.saveAllAndFlush(savedContacts);
+            List<Contact> contactsMissingCode = savedContacts.stream()
+                    .filter(contact -> !StringUtils.hasText(contact.getContactCode()))
+                    .peek(contact -> contact.setContactCode("CNT%03d".formatted(contact.getId())))
+                    .toList();
+            // Updates already have a contact code, so avoid a second DB flush for every save.
+            if (!contactsMissingCode.isEmpty()) {
+                repository.saveAll(contactsMissingCode);
+                repository.flush();
+            }
             Long userId = auditorAware.getCurrentAuditor().orElse(null);
             String email = authenticatedEmail();
             List<Contact> finalSavedContacts = savedContacts;
