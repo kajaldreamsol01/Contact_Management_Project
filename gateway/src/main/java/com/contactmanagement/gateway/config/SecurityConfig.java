@@ -40,7 +40,7 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+        cors.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", "https://contact-management-project-phi.vercel.app"));
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
         cors.setExposedHeaders(List.of("Authorization", "Content-Disposition", "Content-Type", "Content-Length"));

@@ -81,7 +81,7 @@ public class ExcelController {
         return approvalService.reject(id, contactService.authenticatedUserEmail());
     }
 
-    @PreAuthorize("@securityUtil.hasAuthority('admin')or @securityUtil.hasAuthority('hod')")
+    @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod') or @securityUtil.hasAuthority('management')")
     @GetMapping("format")
     public ResponseEntity<byte[]> format() {
         return processor.format();
