@@ -1242,16 +1242,11 @@ function Dashboard() {
             <DateRangeField
               label="From Date"
               value={draftRange.fromDate}
-              max={today}
+              max={draftRange.toDate && draftRange.toDate < today ? draftRange.toDate : today}
               onChange={(next) => {
-               
                 if (!next || next > today) return;
-
-                setDraftRange((current) => ({
-                  ...current,
-                  fromDate: next,
-                  toDate: "",
-                }));
+                if (draftRange.toDate && next > draftRange.toDate) return;
+                setDraftRange((current) => ({ ...current, fromDate: next }));
               }}
             />
           </Grid>
