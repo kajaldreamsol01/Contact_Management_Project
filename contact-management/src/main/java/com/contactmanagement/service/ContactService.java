@@ -37,6 +37,8 @@ import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -162,6 +164,13 @@ public class ContactService {
         Contact contact = create ? new Contact() : repository.findById(request.getId()).orElseThrow(() -> new IllegalArgumentException("Contact not found"));
         Map<String, String> previousValues = create ? Map.of() : historyProcessor.values(contact);
         BeanUtils.copyProperties(request, contact, "id", "contactCode", "createdBy", "createdAt", "updatedBy", "updatedAt");
+        if (create) {
+            contact.setUpdatedBy(null);
+            contact.setUpdatedAt(null);
+        } else {
+            contact.setUpdatedBy(auditorAware.getCurrentAuditor().orElse(null));
+            contact.setUpdatedAt(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+        }
         return new SaveRow(request, contact, create, previousValues);
     }
 

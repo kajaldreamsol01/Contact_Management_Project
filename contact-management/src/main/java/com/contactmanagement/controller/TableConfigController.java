@@ -14,20 +14,20 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("contact/table-config")
+@RequestMapping("contact/table-headers")
 @RequiredArgsConstructor
 public class TableConfigController {
     private final ReactTableHeaderComponent tableHeader;
 
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod') or @securityUtil.hasAuthority('management') or @securityUtil.hasAuthority('user')")
-    @GetMapping("dashboard/all")
-    public ApiResponse<Map<String, List<TableColumnConfig>>> dashboard() {
+    @GetMapping("dashboard")
+    public ApiResponse<Map<String, List<TableColumnConfig>>> dashboardHeaders() {
         return ApiResponse.response("SUCCESS", "Dashboard table headers fetched successfully", tableHeader.dashboard());
     }
 
     @PreAuthorize("@securityUtil.hasAuthority('admin') or @securityUtil.hasAuthority('hod') or @securityUtil.hasAuthority('management') or @securityUtil.hasAuthority('user')")
     @GetMapping("{table}")
-    public ApiResponse<List<TableColumnConfig>> get(@PathVariable String table) {
-        return ApiResponse.response("SUCCESS", "Table header fetched successfully", tableHeader.get(table));
+    public ApiResponse<List<TableColumnConfig>> tableHeaders(@PathVariable String table) {
+        return ApiResponse.response("SUCCESS", "Table headers fetched successfully", tableHeader.get(table));
     }
 }

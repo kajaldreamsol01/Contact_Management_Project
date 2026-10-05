@@ -1177,7 +1177,7 @@ export const getContactTableConfig = async (): Promise<
   ContactTableColumnConfig[]
 > => {
   const response = await axios.get(
-    `/contact/table-config/CONTACT`,
+    `/contact/table-headers/CONTACT`,
   )
 
   const result = ensureSuccess<any>(

@@ -420,7 +420,7 @@ function DetailTableDialog({
           };
         } else if (item.key === "status") {
           column.Cell = ({ row }) => (row.original.status ? "Inactive" : "Active");
-        } else if (item.key === "createdAt") {
+        } else if (item.key === "createdAt" || item.key === "updatedAt") {
           column.Cell = ({ cell }) => formatDateTime(cell.getValue<string>());
         } else {
           column.Cell = ({ cell }) => displayDashboardValue(cell.getValue());

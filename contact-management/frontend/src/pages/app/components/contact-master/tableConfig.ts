@@ -90,7 +90,7 @@ export const getReactTableConfig = async (
   if (inFlight) return inFlight
 
   const request = axios
-    .get(`/contact/table-config/${encodeURIComponent(key)}`)
+    .get(`/contact/table-headers/${encodeURIComponent(key)}`)
     .then((response) => {
       const data = response.data
 
@@ -122,7 +122,7 @@ let dashboardTableConfigPromise: Promise<DashboardTableConfigMap> | null = null
 export const getDashboardTableConfigs = async (): Promise<DashboardTableConfigMap> => {
   if (!dashboardTableConfigPromise) {
     dashboardTableConfigPromise = axios
-      .get('/contact/table-config/dashboard/all')
+      .get('/contact/table-headers/dashboard')
       .then((response) => {
         const data = response.data
 
