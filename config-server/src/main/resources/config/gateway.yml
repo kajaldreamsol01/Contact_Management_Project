@@ -41,17 +41,17 @@ spring:
                 - Path=/auth/**
 
             - id: user-service
-              uri: lb://USER
+              uri: https://user-gbq5.onrender.com
               predicates:
                 - Path=/users/**
 
             - id: master-service
-              uri: lb://MASTER
+              uri: https://master-nzu2.onrender.com
               predicates:
                 - Path=/master/**
 
             - id: contact-service
-              uri: lb://CONTACT-MANAGEMENT
+              uri: https://contact-management-mb84.onrender.com
               predicates:
                 - Path=/contact/**
 
@@ -79,6 +79,7 @@ logging:
     org.springframework.cloud.gateway: INFO
     org.springframework.cloud.loadbalancer: INFO
     org.springframework.security: INFO
+
 
 
 
