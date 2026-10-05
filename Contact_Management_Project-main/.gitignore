@@ -1,9 +1,0 @@
-**/.gradle/
-**/build/
-**/out/
-**/.idea/
-**/node_modules/
-**/dist/
-**/uploads/
-*.lock
-*.log

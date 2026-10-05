@@ -1,1 +1,0 @@
-export { Add as AddIcon, Upload as UploadIcon, Download as DownloadIcon, Edit as EditIcon, Delete as DeleteIcon, Close as CloseIcon, Save as SaveIcon, Image as ImageIcon, Description as DescriptionIcon, TableChartOutlined as TableViewIcon, InsertChartOutlined as ChartViewIcon, } from '@mui/icons-material'
