@@ -507,9 +507,21 @@ export const fetchContactPage = (
   params: ContactPageRequest = {},
 ) => getContactPage('fetch', params)
 
+const filterRequestPromises = new Map<string, Promise<ContactPage>>()
+
 export const filterContactPage = (
   params: ContactPageRequest = {},
-) => getContactPage('filter', params)
+) => {
+  const requestKey = JSON.stringify(params)
+  const existing = filterRequestPromises.get(requestKey)
+  if (existing) return existing
+
+  const request = getContactPage('filter', params).finally(() => {
+    filterRequestPromises.delete(requestKey)
+  })
+  filterRequestPromises.set(requestKey, request)
+  return request
+}
 
 type ContactState = ContactPage & {
   loading: boolean
@@ -759,17 +771,28 @@ export const saveContact = async (
   }
 }
 
-export const getDropdowns = async (): Promise<ContactDropdownData> => {
-  const response = await axios.get(`${MASTER_API}/dropdown`)
+let dropdownCache: { data: ContactDropdownData; expiresAt: number } | null = null
+let dropdownPromise: Promise<ContactDropdownData> | null = null
+const DROPDOWN_CACHE_MS = 5 * 60 * 1000
 
-  const result = ensureSuccess<any>(
-    response.data,
-    'Unable to load master dropdowns',
-  )
+export const getDropdowns = async (force = false): Promise<ContactDropdownData> => {
+  const now = Date.now()
+  if (!force && dropdownCache && dropdownCache.expiresAt > now) {
+    return dropdownCache.data
+  }
+  if (!force && dropdownPromise) return dropdownPromise
 
-  const data = result.data || {}
+  dropdownPromise = (async () => {
+    const response = await axios.get(`${MASTER_API}/dropdown`)
 
-  const values = (items: any): string[] => {
+    const result = ensureSuccess<any>(
+      response.data,
+      'Unable to load master dropdowns',
+    )
+
+    const data = result.data || {}
+
+    const values = (items: any): string[] => {
     if (!Array.isArray(items))
       return []
 
@@ -789,19 +812,29 @@ export const getDropdowns = async (): Promise<ContactDropdownData> => {
     )
   }
 
-  return {
-    names: values(data.names),
-    contactTypes: values(data.contactTypes),
-    departments: values(data.departments),
-    cities: values(data.cities),
-    genders: values(data.genders),
-    maritalStatuses: values(data.maritalStatuses),
-    bloodGroups: values(data.bloodGroups),
-    skills: values(data.skills),
-    languages: values(data.languages),
-    statuses: values(data.statuses).length
-      ? values(data.statuses) as ContactStatus[]
-      : ['Active', 'Inactive'],
+    const normalized: ContactDropdownData = {
+      names: values(data.names),
+      contactTypes: values(data.contactTypes),
+      departments: values(data.departments),
+      cities: values(data.cities),
+      genders: values(data.genders),
+      maritalStatuses: values(data.maritalStatuses),
+      bloodGroups: values(data.bloodGroups),
+      skills: values(data.skills),
+      languages: values(data.languages),
+      statuses: values(data.statuses).length
+        ? values(data.statuses) as ContactStatus[]
+        : ['Active', 'Inactive'],
+    }
+
+    dropdownCache = { data: normalized, expiresAt: Date.now() + DROPDOWN_CACHE_MS }
+    return normalized
+  })()
+
+  try {
+    return await dropdownPromise
+  } finally {
+    dropdownPromise = null
   }
 }
 
@@ -1317,29 +1350,41 @@ export const rejectExcelDownloadRequest = async (
   )
 }
 
+const historyRequestPromises = new Map<number, Promise<ContactHistoryItem[]>>()
+
 export const getContactHistory = async (
   contactId: number,
 ): Promise<ContactHistoryItem[]> => {
-  const response = await axios.get(
-    `${API}/history/${contactId}`,
-  )
+  const existing = historyRequestPromises.get(contactId)
+  if (existing) return existing
 
-  const payload = response.data
-
-  if (
-    String(payload?.status || '').toUpperCase() !==
-    'SUCCESS'
-  ) {
-    throw new Error(
-      payload?.error ||
-      payload?.message ||
-      'Unable to load contact history',
+  const request = (async () => {
+    const response = await axios.get(
+      `${API}/history/${contactId}`,
     )
-  }
 
-  return Array.isArray(payload?.data)
-    ? payload.data
-    : []
+    const payload = response.data
+
+    if (
+      String(payload?.status || '').toUpperCase() !==
+      'SUCCESS'
+    ) {
+      throw new Error(
+        payload?.error ||
+        payload?.message ||
+        'Unable to load contact history',
+      )
+    }
+
+    return Array.isArray(payload?.data)
+      ? payload.data
+      : []
+  })().finally(() => {
+    historyRequestPromises.delete(contactId)
+  })
+
+  historyRequestPromises.set(contactId, request)
+  return request
 }
 
 let contactHistoryTableConfigCache: ContactTableColumnConfig[] | null = null

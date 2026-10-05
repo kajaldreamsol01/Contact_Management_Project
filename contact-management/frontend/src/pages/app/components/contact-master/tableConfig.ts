@@ -76,24 +76,42 @@ const normalizeTableConfig = (raw: unknown): ReactTableColumnConfig[] => {
     )
 }
 
+const tableConfigCache = new Map<string, ReactTableColumnConfig[]>()
+const tableConfigPromises = new Map<string, Promise<ReactTableColumnConfig[]>>()
+
 export const getReactTableConfig = async (
   table: string,
 ): Promise<ReactTableColumnConfig[]> => {
-  const response = await axios.get(
-    `/contact/table-config/${encodeURIComponent(table)}`,
-  )
+  const key = table.trim().toUpperCase()
+  const cached = tableConfigCache.get(key)
+  if (cached) return cached
 
-  const data = response.data
+  const inFlight = tableConfigPromises.get(key)
+  if (inFlight) return inFlight
 
-  if (String(data?.status || '').toUpperCase() !== 'SUCCESS') {
-    throw new Error(
-      data?.error ||
-        data?.message ||
-        `Unable to load ${table} table config`,
-    )
-  }
+  const request = axios
+    .get(`/contact/table-config/${encodeURIComponent(key)}`)
+    .then((response) => {
+      const data = response.data
 
-  return normalizeTableConfig(data?.data)
+      if (String(data?.status || '').toUpperCase() !== 'SUCCESS') {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            `Unable to load ${key} table config`,
+        )
+      }
+
+      const config = normalizeTableConfig(data?.data)
+      tableConfigCache.set(key, config)
+      return config
+    })
+    .finally(() => {
+      tableConfigPromises.delete(key)
+    })
+
+  tableConfigPromises.set(key, request)
+  return request
 }
 
 

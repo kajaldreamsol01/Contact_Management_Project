@@ -35,13 +35,12 @@ import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import {
   getContactAnalytics,
-  getStatusCount,
   filterContactPage,
   type ContactAnalytics,
   type ContactListItem,
   type ContactSearchParams,
 } from "./app/components/contact-master/apis";
-import { getReactTableConfig, type ReactTableColumnConfig } from "./app/components/contact-master/tableConfig";
+import { getDashboardTableConfigs, type ReactTableColumnConfig } from "./app/components/contact-master/tableConfig";
 
 declare global {
   interface Window {
@@ -98,6 +97,13 @@ const formatDateTime = (value?: string | null) => {
   const min = String(date.getMinutes()).padStart(2, "0");
   const sec = String(date.getSeconds()).padStart(2, "0");
   return `${dd}/${mm}/${yy} ${hh}:${min}:${sec}`;
+};
+
+
+const displayDashboardValue = (value: unknown) => {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "N/A";
+  const text = String(value ?? "").trim();
+  return text || "N/A";
 };
 
 const loadScript = (src: string) =>
@@ -170,9 +176,11 @@ function useBackendTableConfig(table: string) {
 
   useEffect(() => {
     let active = true;
-    getReactTableConfig(table)
-      .then((columns) => {
-        if (active) setConfig(columns);
+    // One cached backend call returns every dashboard table header.
+    // Multiple dashboard cards share the same in-flight promise.
+    getDashboardTableConfigs()
+      .then((configs) => {
+        if (active) setConfig(configs[table] ?? []);
       })
       .catch(() => {
         if (active) setConfig([]);
@@ -195,7 +203,7 @@ const summaryColumns = (
     header: item.header,
     size: item.size,
     enableSorting: item.sortable ?? false,
-    ...(cells[item.key] ? { Cell: cells[item.key] } : {}),
+    Cell: cells[item.key] ?? (({ cell }) => displayDashboardValue(cell.getValue())),
   }));
 
 function SummaryTable({
@@ -414,6 +422,8 @@ function DetailTableDialog({
           column.Cell = ({ row }) => (row.original.status ? "Inactive" : "Active");
         } else if (item.key === "createdAt") {
           column.Cell = ({ cell }) => formatDateTime(cell.getValue<string>());
+        } else {
+          column.Cell = ({ cell }) => displayDashboardValue(cell.getValue());
         }
 
         return column;
@@ -1139,12 +1149,19 @@ function Dashboard() {
     analyticsRequestKey.current = requestKey;
     setLoading(true);
 
+    // Analytics already contains total/active/inactive, so a second
+    // status-count request is unnecessary on the dashboard.
     getContactAnalytics({
       fromDate: appliedRange.fromDate,
       toDate: appliedRange.toDate,
     })
       .then((result) => {
         setData(result);
+        setCounts({
+          total: Number(result.total || 0),
+          active: Number(result.active || 0),
+          inactive: Number(result.inactive || 0),
+        });
         setError("");
       })
       .catch((e) => {
@@ -1154,23 +1171,11 @@ function Dashboard() {
       .finally(() => setLoading(false));
   }, [appliedRange.fromDate, appliedRange.toDate]);
 
-  const loadCounts = useCallback(async () => {
-    try {
-      const result = await getStatusCount();
-      setCounts({ total: result.active + result.inactive, active: result.active, inactive: result.inactive });
-    } catch {
-      setCounts({ total: 0, active: 0, inactive: 0 });
-    }
-  }, []);
-
   useEffect(() => {
-
     void loadAnalytics(false);
-    void loadCounts();
 
     const refresh = () => {
       void loadAnalytics(true);
-      void loadCounts();
     };
 
     window.addEventListener("contact-analytics-updated", refresh);
@@ -1178,7 +1183,7 @@ function Dashboard() {
     return () => {
       window.removeEventListener("contact-analytics-updated", refresh);
     };
-  }, [loadAnalytics, loadCounts]);
+  }, [loadAnalytics]);
 
   const stats = useMemo(() => [
     { label:"Total Contacts",value:counts.total,icon:<GroupsOutlinedIcon />,color:UI_PRIMARY,darkColor:UI_PRIMARY_DARK,lightColor:UI_PRIMARY_LIGHT,filters:{},allTime:true },

@@ -225,9 +225,9 @@ function ContactActivityBoard() {
             setCounts({ total: 0, active: 0, inactive: 0 });
         }
     }, [draftFilters, tileMode]);
-    const loadDropdowns = useCallback(async (_force = false) => {
+    const loadDropdowns = useCallback(async (force = false) => {
         try {
-            const master = await getDropdowns();
+            const master = await getDropdowns(force);
             dispatch(setDropdownCache(master));
             setFilterDropdowns(master);
         }
@@ -252,7 +252,7 @@ function ContactActivityBoard() {
             sort: appliedFilters.sortBy || "id",
             direction: appliedFilters.sortDirection || "desc",
         })).unwrap();
-        await Promise.all([loadCounts(tileMode, appliedFilters), loadDropdowns(true)]);
+        await loadCounts(tileMode, appliedFilters);
     }, [appliedFilters, dispatch, loadCounts, loadDropdowns, pagination.pageSize, tileMode]);
 
     const loadPage = useCallback(async (nextPagination: MRT_PaginationState) => {
@@ -293,7 +293,7 @@ function ContactActivityBoard() {
             loadContacts(),
             loadTableConfig(),
             loadCounts(),
-            loadDropdowns(true),
+            loadDropdowns(false),
         ]);
     }, [loadContacts, loadTableConfig, loadCounts, loadDropdowns]);
     useEffect(() => {

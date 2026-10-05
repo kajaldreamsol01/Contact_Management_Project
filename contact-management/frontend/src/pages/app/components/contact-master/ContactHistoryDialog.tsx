@@ -101,14 +101,12 @@ export default function ContactHistoryDialog({
 
     Promise.all([
       getContactHistory(contactId),
-      loadedConfig.length
-        ? Promise.resolve(loadedConfig)
-        : getContactHistoryTableConfig(),
+      getContactHistoryTableConfig(),
     ])
       .then(([history, config]) => {
         if (!active) return;
         setLoadedItems(history);
-        if (!loadedConfig.length) setLoadedConfig(config);
+        setLoadedConfig(config);
       })
       .catch((exception) => {
         if (!active) return;
@@ -126,7 +124,7 @@ export default function ContactHistoryDialog({
     return () => {
       active = false;
     };
-  }, [open, contactId, items, loadedConfig]);
+  }, [open, contactId, items]);
 
   const effectiveItems = items ?? loadedItems;
   const effectiveConfig = tableConfig ?? loadedConfig;
