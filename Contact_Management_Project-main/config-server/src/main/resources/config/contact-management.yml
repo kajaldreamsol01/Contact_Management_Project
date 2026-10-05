@@ -1,0 +1,59 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 100MB
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/contact_management?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata
+    username: root
+    password: 9876
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: sharmakajal7409@gmail.com
+    password: simm uqnd ccpl aasv
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+        debug: false
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:contact-management-auth-secret-key-2026}
+
+contact:
+  storage:
+    directory: "${CONTACT_UPLOAD_DIR:${user.home}/contact-management-data/uploads}"
+
+common:
+  admin-email: sharmakajal7409@gmail.com
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8085}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
+  instance:
+    prefer-ip-address: true
