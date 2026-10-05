@@ -36,7 +36,7 @@ spring:
 
           routes:
             - id: auth-service
-              uri: lb://AUTH
+              uri: https://auth-production-bd55.up.railway.app
               predicates:
                 - Path=/auth/**
 
@@ -79,5 +79,6 @@ logging:
     org.springframework.cloud.gateway: INFO
     org.springframework.cloud.loadbalancer: INFO
     org.springframework.security: INFO
+
 
 
